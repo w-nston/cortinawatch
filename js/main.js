@@ -77,24 +77,28 @@ function createVitrine() {
     return null;
   }
   const small = Math.min(screen.width, screen.height) < 600;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  // phones: at most 1.5 device pixels per css pixel (lowered further, down to 1, if frames run slow)
+  const DPR_MAX = Math.min(devicePixelRatio, small ? 1.5 : 2);
+  renderer.setPixelRatio(DPR_MAX);
   renderer.setClearColor(0x000000, 0);               // the room is the page's own brown (css)
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.localClippingEnabled = true;               // the seam
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !small;               // phones skip the shadow pass (the hands' shadows)
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const canvas = renderer.domElement;
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', 'The Ref. 5057 in 3D: the 1997 rose gold watch on the left of the seam, the 2022 white gold watch on its right. Drag to turn it.');
   canvasBox.append(canvas);
+  window.__renderer = renderer;                       // for inspection from the console (draw calls, memory)
 
   const scene = new THREE.Scene();
+  window.__scene = scene;
   scene.environment = studioEnvironment(renderer, { warm: true });   // softboxes both sides, a warm room
   const camera = new THREE.PerspectiveCamera(24, 1, 5, 4000);
   // a spot above the visitor's shoulder: sparkle on the hobnails, the hands' shadows on the dial
   const spot = new THREE.SpotLight(0xfff2e2, 1.6, 0, 0.42, 0.9, 0);
   spot.position.set(-140, 260, 330);
-  spot.castShadow = true;
+  spot.castShadow = !small;
   spot.shadow.mapSize.setScalar(small ? 1024 : 2048);
   spot.shadow.bias = -0.0002;
   spot.shadow.normalBias = 0.2;
@@ -224,6 +228,9 @@ function createVitrine() {
     for (const c of body.children) {
       const layer = LAYERS.find(([re]) => re.test(c.name));
       if (layer) parts.push({ o: c, z0: c.position.z, dz: layer[1] });
+      // the movement can only be seen through the caseback; the dial, its hands and moon only from the front
+      const face = !layer ? 'any' : [-10, -17, -25, -33].includes(layer[1]) ? 'back' : [9, 17].includes(layer[1]) ? 'front' : 'any';
+      c.traverse((o) => { if (o.isMesh) o.userData.face = face; });
       const def = STRAP.test(c.name) ? STRAP_PART : PARTS.find(([re]) => re.test(c.name));
       if (!def) continue;
       const comp = compOf(def);
@@ -233,11 +240,13 @@ function createVitrine() {
     root.traverse((o) => {
       if (o.isMesh) for (const m of [].concat(o.material)) m.userData.base = { opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite };
     });
+    const meshes = [];
+    root.traverse((o) => { if (o.isMesh) { o.geometry.computeBoundingSphere(); o.userData.fadeVis = true; meshes.push(o); } });
     const mixer = new THREE.AnimationMixer(root);
     for (const clip of gltf.animations) if (clip.name !== 'rotor_spin') mixer.clipAction(clip).play();
     const rotorNode = root.getObjectByName('movement_rotor');
     const hands = Object.fromEntries(['hour', 'minute', 'seconds', 'date'].map((k) => [k, root.getObjectByName(`hand_${k}`)]));
-    return { root, parts, mixer, hands, moon: root.getObjectByName('moon_disc'), rotor: rotorNode ? new RotorPhysics(rotorNode) : null };
+    return { root, parts, meshes, mixer, hands, moon: root.getObjectByName('moon_disc'), rotor: rotorNode ? new RotorPhysics(rotorNode) : null };
   }
 
   Promise.all([load(LEFT, planeL), load(RIGHT, planeR)]).then(([l, r]) => {
@@ -263,7 +272,7 @@ function createVitrine() {
   let yaw = DIAL_YAW, yawT = DIAL_YAW, pitch = 0, pitchT = 0;
   let spin = 0.35, anat = 0, anatT = 0;
   let zoom = 1, zoomT = 1;
-  let seam = 0.5, seamT = 0.5, seamDrag = false;
+  let seam = 0.5, seamT = 0.5, seamDrag = false, seamShown = -1;
   let idle = 0, time = 0;
   let offX = 0, offY = 0, offXT = 0, offYT = 0;
   let mode = 'dial', closeUp = 1;                   // closer in for the movement
@@ -649,9 +658,12 @@ function createVitrine() {
     pivot.position.copy(jolt);
     // the seam
     seam = seamDrag ? seam : damp(seam, seamT, 6, dt);
-    stage.style.setProperty('--seam', seam.toFixed(4));
-    handle.setAttribute('aria-valuenow', String(Math.round(seam * 100)));
-    handle.setAttribute('aria-valuetext', seam > 0.97 ? 'The 1997 Ref. 5057R' : seam < 0.03 ? 'The 2022 Ref. 5057G' : '1997 on the left, 2022 on the right');
+    if (Math.abs(seam - seamShown) > 0.0004) {            // the page restyles only when the seam moves
+      seamShown = seam;
+      stage.style.setProperty('--seam', seam.toFixed(4));
+      handle.setAttribute('aria-valuenow', String(Math.round(seam * 100)));
+      handle.setAttribute('aria-valuetext', seam > 0.97 ? 'The 1997 Ref. 5057R' : seam < 0.03 ? 'The 2022 Ref. 5057G' : '1997 on the left, 2022 on the right');
+    }
     const l = seam >= 0.5;
     if (lead.left !== l) {
       lead.left = l;
@@ -734,6 +746,31 @@ function createVitrine() {
   }
 
   // the strap fades as the watch is laid down; round a part shown alone, the rest fade to a ghost
+  // draw only what can be seen: not the faded, not what lies wholly on the far side of the seam for its
+  // watch, not the movement while the dial faces the eye, nor the dial's side while the caseback does
+  const _sph = new THREE.Sphere(), _n = new THREE.Vector3(), _e = new THREE.Vector3();
+  function cull(tilt) {
+    _n.set(0, 0, 1).applyQuaternion(pivot.quaternion);
+    const facing = _n.dot(_e.copy(camera.position).normalize());   // 1: dial to the eye, -1: caseback
+    const all = tilt > 0.01;
+    const showBack = all || facing < 0.15, showFront = all || facing > -0.15;
+    const split = seam > 0.002 && seam < 0.998;
+    scene.updateMatrixWorld();
+    for (const [m, plane] of [[models.left, planeL], [models.right, planeR]]) {
+      if (!m.root.visible) continue;
+      for (const o of m.meshes) {
+        let v = o.userData.fadeVis;
+        const f = o.userData.face;
+        if (v && ((f === 'back' && !showBack) || (f === 'front' && !showFront))) v = false;
+        if (v && split) {
+          _sph.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+          if (plane.distanceToPoint(_sph.center) < -_sph.radius) v = false;
+        }
+        o.visible = v;
+      }
+    }
+  }
+
   function fadeParts(dt, tilt) {
     const strap = 1 - Math.max(smooth(tilt / 0.6), backness);   // out of the way: Anatomy, or the back shown
     for (const comp of comps.values()) {
@@ -743,7 +780,7 @@ function createVitrine() {
       if (comp.vis > 0.997) comp.vis = 1;
       comp.applied = comp.vis;
       for (const o of comp.meshes) {
-        o.visible = comp.vis > 0.01;
+        o.userData.fadeVis = comp.vis > 0.01;
         o.castShadow = comp.vis > 0.5;
         for (const mat of [].concat(o.material)) {
           const base = mat.userData.base;
@@ -782,9 +819,18 @@ function createVitrine() {
   let onScreen = true;
   new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; }).observe(stage);
   const clock = new THREE.Clock();
+  let frameMs = 16, dprClock = 0;
   renderer.setAnimationLoop(() => {
     const dt = Math.min(clock.getDelta(), 1 / 20);
     if (!onScreen || document.hidden) return;
+    // keep it smooth: if frames run long, draw fewer pixels (down to 1 per css pixel); back up when there is room
+    frameMs += (dt * 1000 - frameMs) * 0.05;
+    if ((dprClock += dt) > 1.5) {
+      dprClock = 0;
+      const now = renderer.getPixelRatio();
+      const next = frameMs > 24 ? Math.max(1, now - 0.25) : frameMs < 14 ? Math.min(DPR_MAX, now + 0.25) : now;
+      if (next !== now) { renderer.setPixelRatio(next); renderer.setSize(W_, H_, false); }
+    }
     const { explode = 0, tilt = 0 } = update(dt);
     if (models.left) {
       tickClock(dt);
@@ -793,6 +839,7 @@ function createVitrine() {
       if (models.left.root.visible) animateModel(models.left, dt, explode);
       if (models.right.root.visible) animateModel(models.right, dt, explode);
       fadeParts(dt, tilt);
+      cull(tilt);
     }
     placeLabels(explode);
     if (loupeOn) renderLoupe();
@@ -804,6 +851,9 @@ function createVitrine() {
     relayout,
   };
 }
+
+// iOS Safari pinch-zooms the page from its own gesture events, whatever touch-action says: not over the watch
+document.addEventListener('gesturestart', (e) => { if (stage.contains(e.target)) e.preventDefault(); }, { passive: false });
 
 // ------------------------------------------------------------------ the masthead: white over the white story
 const masthead = $('.masthead'), story = $('#story'), colophon = $('.colophon');

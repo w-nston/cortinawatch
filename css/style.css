@@ -709,6 +709,21 @@ button { font: inherit; color: inherit; }
 }
 .colophon p { margin: 0 auto; max-width: 52em; }
 
+/* phones: no page zoom over the watch (pinch and double-tap belong to the watch; the story below still
+   zooms), quick taps, and no blurred glass over the canvas, which a phone would re-blur every frame */
+.stage { touch-action: pan-y; }
+button, a { touch-action: manipulation; }
+@media (pointer: coarse) {
+  .stage :is(.zoom, .modes, .clock, .seam-handle, .parts-go, .part, .sheet) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .stage :is(.zoom, .modes, .clock, .parts-go) { background: rgba(52, 46, 42, 0.86); }
+  .stage .seam-handle { background: rgba(52, 46, 42, 0.9); }
+  .stage .part { background: rgba(52, 46, 42, 0.92); }
+  .stage .sheet { background: rgba(52, 46, 42, 0.97); }
+}
+
 @media (hover: hover) {
   .zoom button:hover, .modes button:hover, .cap:hover { color: var(--white); }
   .seam-handle:hover { background: rgba(201, 188, 137, 0.18); }
