@@ -339,10 +339,10 @@ function createVitrine() {
     const dx = p.x - drag.x, dy = p.y - drag.y;
     if (mode === 'anatomy') {
       spin = spinT = drag.spin + dx * 0.007;
-      if (drag.mouse || focusKey) tiltOff = tiltOffT = clamp(drag.tiltOff + dy * 0.006, -1.2, 1.0);
+      tiltOff = tiltOffT = clamp(drag.tiltOff + dy * 0.006, -1.2, 1.0);
     } else {
       yaw = yawT = drag.yaw + dx * 0.007;
-      if (drag.mouse) pitch = pitchT = clamp(drag.pitch + dy * 0.005, -0.6, 0.6);
+      pitch = pitchT = clamp(drag.pitch + dy * 0.005, -0.6, 0.6);   // up and down tilts it (the page stays put)
       syncModes();
     }
   });
@@ -570,13 +570,30 @@ function createVitrine() {
 
   // ---- the seam: dragged by its handle, or by the arrow keys
   const handle = $('#seam-handle');
-  handle.addEventListener('pointerdown', (e) => { seamDrag = true; handle.setPointerCapture(e.pointerId); stage.classList.add('seam-used'); });
-  handle.addEventListener('pointermove', (e) => {
-    if (!seamDrag) return;
-    const r = stage.getBoundingClientRect();
-    seam = seamT = clamp((e.clientX - r.left) / r.width, 0, 1);
+  // it moves only once the finger has slid 6 px sideways (a tap or a wobble leaves it), and then by how far
+  // the finger has slid, so a touch a little off its centre does not make it jump
+  let grab = null;
+  handle.addEventListener('pointerdown', (e) => {
+    grab = { x: e.clientX, seam, moving: false };
+    handle.setPointerCapture(e.pointerId);
   });
-  const endSeam = () => { seamDrag = false; };
+  handle.addEventListener('pointermove', (e) => {
+    if (!grab) return;
+    const dx = e.clientX - grab.x;
+    if (!grab.moving) {
+      if (Math.abs(dx) < 6) return;
+      grab.moving = true;
+      grab.x = e.clientX;
+      seamDrag = true;
+      stage.classList.add('seam-used');
+      return;
+    }
+    seam = seamT = clamp(grab.seam + dx / stage.getBoundingClientRect().width, 0, 1);
+  });
+  const endSeam = () => { seamDrag = false; grab = null; };
+  // 1997 | Both | 2022: the whole of either watch, or both halves, in one tap
+  const versionBtns = [...document.querySelectorAll('.versions button')];
+  for (const b of versionBtns) b.addEventListener('click', () => { endIntro('skip'); seamT = +b.dataset.seam; stage.classList.add('seam-used'); });
   handle.addEventListener('pointerup', endSeam);
   handle.addEventListener('pointercancel', endSeam);
   handle.addEventListener('keydown', (e) => {
@@ -663,6 +680,8 @@ function createVitrine() {
       stage.style.setProperty('--seam', seam.toFixed(4));
       handle.setAttribute('aria-valuenow', String(Math.round(seam * 100)));
       handle.setAttribute('aria-valuetext', seam > 0.97 ? 'The 1997 Ref. 5057R' : seam < 0.03 ? 'The 2022 Ref. 5057G' : '1997 on the left, 2022 on the right');
+      const shown = seam > 0.98 ? '1' : seam < 0.02 ? '0' : Math.abs(seam - 0.5) < 0.03 ? '0.5' : '';
+      for (const b of versionBtns) b.setAttribute('aria-pressed', String(b.dataset.seam === shown));
     }
     const l = seam >= 0.5;
     if (lead.left !== l) {

@@ -87,7 +87,14 @@ button { font: inherit; color: inherit; }
 }
 .wordmark span[aria-hidden] { margin: 0 0.45em; color: var(--champagne); }
 .masthead.on-light .wordmark span[aria-hidden] { color: var(--wine); }
-.masthead nav { display: none; }
+.masthead nav { display: flex; gap: 24px; }
+.masthead nav .nav-watch { display: none; }          /* phones: only the way down to the story */
+.masthead nav a { opacity: 0.85; transition: opacity 0.3s; }
+.masthead nav .nav-story::after { content: ' ↓'; letter-spacing: 0; }
+@media (max-width: 899px) {
+  .masthead { justify-content: space-between; }
+  .wordmark, .masthead nav a { font-size: 10px; letter-spacing: 0.14em; }
+}
 
 /* ---------------------------------------------------------------- the stage: the watch, full screen */
 .stage {
@@ -105,7 +112,7 @@ button { font: inherit; color: inherit; }
   display: block;
   width: 100%;
   height: 100%;
-  touch-action: pan-y;        /* sideways drags turn the watch, two fingers zoom; the page still scrolls */
+  touch-action: none;         /* the watch takes every drag (turn, tilt, pinch); the page never scrolls under it */
   cursor: grab;
   opacity: 0;
   transition: opacity 1.2s var(--ease);
@@ -268,12 +275,12 @@ button { font: inherit; color: inherit; }
   transition: opacity 0.5s;
 }
 .stage.is-intro .intro-skip { opacity: 1; pointer-events: auto; }
-.stage:not(.is-ready) :is(.captions, .modes, .zoom, .clock),
-.stage.is-intro :is(.captions, .modes, .zoom, .clock, .seam-handle, .seam-hint, .parts-go) {
+.stage:not(.is-ready) :is(.captions, .modes, .zoom, .clock, .versions),
+.stage.is-intro :is(.captions, .modes, .zoom, .clock, .versions, .seam-handle, .seam-hint, .parts-go) {
   opacity: 0;
   pointer-events: none;
 }
-.captions, .modes, .zoom, .clock, .seam-handle { transition: opacity 0.9s var(--ease); }
+.captions, .modes, .zoom, .clock, .versions, .seam-handle { transition: opacity 0.9s var(--ease); }
 
 /* the time shown: 10:10 or live, a small pill under the masthead */
 .clock {
@@ -304,6 +311,40 @@ button { font: inherit; color: inherit; }
   transition: color 0.3s, background-color 0.3s;
 }
 .clock button[aria-pressed='true'] { color: var(--white); background: rgba(201, 188, 137, 0.18); }
+
+/* which watch: 1997 | Both | 2022, under the time */
+.versions {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: calc(var(--top) + 42px);
+  transform: translateX(-50%);
+  display: flex;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(60, 53, 49, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+.versions button {
+  min-width: 60px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  font: 300 11px/1 var(--sans);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sand);
+  cursor: pointer;
+  transition: color 0.3s, background-color 0.3s;
+}
+.versions button + button { border-left: 1px solid var(--rule); }
+.versions button[data-seam='1'][aria-pressed='true'] { color: var(--rose); background: rgba(236, 195, 162, 0.16); }
+.versions button[data-seam='0.5'][aria-pressed='true'] { color: var(--champagne); background: rgba(201, 188, 137, 0.16); }
+.versions button[data-seam='0'][aria-pressed='true'] { color: var(--white-gold); background: rgba(231, 233, 240, 0.14); }
+.stage.no-webgl .versions { display: none; }
 .stage.no-webgl .clock { display: none; }
 
 /* the loupe: a lens that follows the finger, its rim gilt, the Calatrava cross on a medallion */
@@ -432,29 +473,45 @@ button { font: inherit; color: inherit; }
 /* Anatomy: the hint, then one part on its own with its card */
 .parts-go {
   position: absolute;
-  z-index: 3;
+  z-index: 4;
   left: 50%;
-  top: calc(var(--top) + 46px);
-  min-height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--champagne);
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 24px 0 20px;
+  border: 0;
   border-radius: 999px;
-  background: rgba(60, 53, 49, 0.55);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  font: 400 10px/1 var(--sans);
+  background: var(--champagne);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font: 600 11px/1 var(--sans);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--champagne);
+  color: var(--brown);
   white-space: nowrap;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -6px);
-  transition: opacity 0.5s, transform 0.5s var(--ease);
+  transform: translate(-50%, 12px);
+  transition: opacity 0.5s, transform 0.6s var(--ease), background-color 0.3s;
 }
-.stage.is-anatomy:not(.is-focus) .parts-go { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); transition-delay: 1.4s; }
-.stage.is-focus .stage-canvas canvas { touch-action: none; }   /* a part alone turns every way */
+.parts-go svg { width: 22px; height: 22px; flex: none; }
+.stage.is-anatomy:not(.is-focus) .parts-go {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+  transition-delay: 1.4s;
+  animation: beckon 2.2s var(--ease) 2s 3;
+}
+@keyframes beckon {
+  0% { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(201, 188, 137, 0.6); }
+  70%, 100% { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 14px rgba(201, 188, 137, 0); }
+}
+/* in Anatomy the two years step aside for it, and the seam's handle moves up clear of it */
+.stage.is-anatomy .captions { opacity: 0; pointer-events: none; }
+.seam { transition: opacity 0.8s var(--ease), bottom 0.6s var(--ease); }
+.stage.is-anatomy:not(.is-focus) .seam { bottom: calc(var(--bottom) + 46px); }
 .stage.is-focus .captions { opacity: 0; pointer-events: none; }
 .stage.is-focus .seam-hint { opacity: 0; }
 .captions { transition: opacity 0.4s; }
@@ -711,20 +768,24 @@ button { font: inherit; color: inherit; }
 
 /* phones: no page zoom over the watch (pinch and double-tap belong to the watch; the story below still
    zooms), quick taps, and no blurred glass over the canvas, which a phone would re-blur every frame */
-.stage { touch-action: pan-y; }
 button, a { touch-action: manipulation; }
+/* the watch's screen is an app: nothing on it scrolls or zooms the page (the Story link goes down);
+   only a watch's story sheet scrolls, inside itself */
+.stage, .stage * { touch-action: none; }
+.stage .sheet, .stage .sheet * { touch-action: pan-y; }
 @media (pointer: coarse) {
-  .stage :is(.zoom, .modes, .clock, .seam-handle, .parts-go, .part, .sheet) {
+  .stage :is(.zoom, .modes, .clock, .versions, .seam-handle, .parts-go, .part, .sheet) {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-  .stage :is(.zoom, .modes, .clock, .parts-go) { background: rgba(52, 46, 42, 0.86); }
+  .stage :is(.zoom, .modes, .clock, .versions) { background: rgba(52, 46, 42, 0.86); }
   .stage .seam-handle { background: rgba(52, 46, 42, 0.9); }
   .stage .part { background: rgba(52, 46, 42, 0.92); }
   .stage .sheet { background: rgba(52, 46, 42, 0.97); }
 }
 
 @media (hover: hover) {
+  .parts-go:hover { background: #d8cc9c; }
   .zoom button:hover, .modes button:hover, .cap:hover { color: var(--white); }
   .seam-handle:hover { background: rgba(201, 188, 137, 0.18); }
   .to-vitrine:hover { text-decoration-color: var(--wine); }
@@ -751,8 +812,9 @@ button, a { touch-action: manipulation; }
   :root { --gutter: clamp(32px, 4vw, 64px); --top: 76px; --bottom: 120px; }
   .masthead { justify-content: space-between; padding: 22px var(--gutter) 34px; }
   .masthead.on-light { padding-bottom: 20px; }
-  .masthead nav { display: flex; gap: 32px; }
-  .masthead nav a { opacity: 0.8; transition: opacity 0.3s; }
+  .masthead nav { gap: 32px; }
+  .masthead nav .nav-watch { display: inline; }
+  .masthead nav .nav-story::after { content: none; }
   .masthead nav a:hover { opacity: 1; }
   .wordmark, .masthead nav a { font-size: 12px; letter-spacing: 0.28em; }
   .stage { min-height: 640px; }
@@ -769,6 +831,7 @@ button, a { touch-action: manipulation; }
   .cap-ref, .cap-more { font-size: 10.5px; }
   .modes { bottom: 32px; }
   .part { bottom: 96px; }
+  .parts-go { bottom: 96px; min-height: 54px; font-size: 12px; }
   .part-name { font-size: 22px; }
   .part-note { font-size: 14.5px; }
   .modes button { font-size: 11px; letter-spacing: 0.24em; }
