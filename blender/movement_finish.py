@@ -46,10 +46,35 @@ bridge = np.zeros(X.shape, bool)
 for outline in data["bridges"].values():
     bridge |= Path(outline).contains_points(pts).reshape(X.shape)
 
-photo = np.asarray(Image.open(os.path.join(TEX, "movement_5057G_color.jpg")).convert("RGB")).astype(np.float32)
+# the gilt engravings come from a photograph of the reference's own movement: the 5057G's caseback
+# photo, or for the 5057R (1997, older engravings: PATEK PHILIPPE / GENEVE SWISS down the barrel
+# bridge, TWENTY-NINE JEWELS, the serial and 240/164, no "ADJUSTED…", no regulator marks) the
+# user's photograph of its calibre, registered by an affine fit of seven jewels and pivots
+# (residuals <= 0.14 mm, 22 px/mm, turned 18°)
+VARIANT = os.environ.get("VARIANT", "5057G")
+PREFIX = "movement_finish" if VARIANT == "5057G" else f"movement_finish_{VARIANT}"
+if VARIANT == "5057G":
+    photo = np.asarray(Image.open(os.path.join(TEX, "movement_5057G_color.jpg")).convert("RGB")).astype(np.float32)
+else:
+    OLD_PX = np.array([(382, 550), (450, 307), (162, 282), (240, 173), (232, 400), (260, 555), (205, 535)], float)
+    OLD_MM = np.array([(0.52, -9.38), (6.47, 0.06), (-5.77, 5.14), (-1.11, 8.83), (-4.28, -0.75), (-4.79, -7.63), (-7.14, -6.06)])
+    A_ = np.c_[OLD_PX, np.ones(len(OLD_PX))]
+    Aff = np.vstack([np.linalg.lstsq(A_, OLD_MM[:, 0], rcond=None)[0], np.linalg.lstsq(A_, OLD_MM[:, 1], rcond=None)[0], [0, 0, 1]])
+    Ai = np.linalg.inv(Aff)
+    src = np.asarray(Image.open(os.path.join(HERE, "..", "watch photos", "5057r", "old 240 movement.jpg")).convert("RGB")).astype(np.float32)
+    ox, oy = Ai[0, 0] * X + Ai[0, 1] * Y + Ai[0, 2], Ai[1, 0] * X + Ai[1, 1] * Y + Ai[1, 2]
+    photo = np.stack([ndimage.map_coordinates(src[..., c], [oy, ox], order=3, mode="nearest") for c in range(3)], -1)
 r, g, b = photo[..., 0], photo[..., 1], photo[..., 2]
 sat = (photo.max(2) - photo.min(2)) / (photo.max(2) + 1)
 gold = (r > g + 12) & (g > b + 12) & (sat > 0.16)
+if VARIANT != "5057G" and os.path.exists(os.path.join(TEX, f"engravings_{VARIANT}.png")):
+    gold = np.zeros(X.shape, bool)               # typeset engravings replace the photo's below
+elif VARIANT != "5057G":   # a soft, warm photo: letters are the warmest strokes on the silver
+    warm = (r - b) - ndimage.median_filter(r - b, size=int(1.2 * K))
+    gold = (warm > 28) & (r > b + 25)
+    gold &= np.hypot(X, Y) < 12.5                  # not the rose-gold case reflected at the window's edge
+    gold &= ndimage.binary_erosion(bridge, iterations=10)
+    gold = ndimage.gaussian_filter(gold.astype(np.float32), 1.6) > 0.45   # round off the 22 px/mm jaggies
 gilt = gold & ndimage.binary_erosion(bridge, iterations=4)
 lab, n = ndimage.label(gilt)
 sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1)) / K ** 2
@@ -62,7 +87,10 @@ bx_, by_ = data["chatons"][-1][:2] if data.get("chatons") else (0.52, -9.38)
 gilt &= np.hypot(X - bx_, Y - by_) > 2.05
 if "pallet_bridge" in data["bridges"]:
     gilt &= ~Path(data["bridges"]["pallet_bridge"]).contains_points(pts).reshape(X.shape)
-print(f"gilt engravings: {gilt.sum() / K ** 2:.1f} mm² in {len([s for s in sizes if 0.004 < s < 4.0])} marks")
+ENGR = os.path.join(TEX, f"engravings_{VARIANT}.png")
+if VARIANT != "5057G" and os.path.exists(ENGR):   # typeset engravings (engravings_5057r.py) in place of the photo's
+    gilt = (np.asarray(Image.open(ENGR).convert("L").resize((N, N), Image.LANCZOS)) > 110) & bridge
+print(f"gilt engravings: {gilt.sum() / K ** 2:.1f} mm²")
 
 # ---- Côtes de Genève on the bridges: straight bands across x, each a shallow cylinder
 W_BAND, X0_BAND = 2.6, 2.0
@@ -108,15 +136,23 @@ col = np.zeros(X.shape + (3,), np.float32)
 col[:] = (212, 214, 217)                               # rhodium-plated plate
 col[bridge] = (226, 228, 231)                          # rhodium-plated bridges
 col[gilt] = (206, 152, 82)                             # gold-filled engravings
+SEAL_PNG = os.path.join(TEX, f"engravings_{VARIANT}_seal.png")
+if VARIANT != "5057G" and os.path.exists(SEAL_PNG):     # the Geneva Seal as photographed (engravings_5057r_photo.py)
+    sp = np.asarray(Image.open(SEAL_PNG).convert("RGBA").resize((N, N), Image.LANCZOS)).astype(np.float32)
+    al = sp[..., 3:] / 255
+    rgb = sp[..., :3] * (np.array((206, 152, 82)) / sp[al[..., 0] > 0.8][:, :3].mean(0))   # its relief, the gilt's tone
+    col = col * (1 - al) + np.clip(rgb, 0, 255) * al
 rough = np.where(bridge, 0.2 + 0.04 * hair, 0.34)
 rough = np.where(gilt, 0.45, rough)
 orm = np.zeros(X.shape + (3,), np.uint8)
 orm[..., 0] = 255
 orm[..., 1] = (rough * 255).astype(np.uint8)
 orm[..., 2] = 255
-Image.fromarray(col.astype(np.uint8)).save(os.path.join(TEX, "movement_finish_color.jpg"), quality=92)
-Image.fromarray(orm).save(os.path.join(TEX, "movement_finish_orm.png"))
-to_png(nrm).save(os.path.join(TEX, "movement_finish_normal.png"))
+Image.fromarray(col.astype(np.uint8)).save(os.path.join(TEX, f"{PREFIX}_color.jpg"), quality=92)
+Image.fromarray(orm).save(os.path.join(TEX, f"{PREFIX}_orm.png"))
+to_png(nrm).save(os.path.join(TEX, f"{PREFIX}_normal.png"))
+if os.environ.get("SCRATCH"):
+    Image.fromarray((gilt * 255).astype(np.uint8)).save(os.path.join(os.environ["SCRATCH"], f"gilt_{VARIANT}.png"))
 
 # ---- wheel finishes (1024², UV square = the wheel's diameter)
 n2 = 1024

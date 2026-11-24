@@ -5,7 +5,12 @@
 # ("niversary", "1972") and over the plate ("Cortina Watch"). Photo-view mm (seen from the back,
 # x right); build_5057.py maps it on with the movement's planar UVs.
 #   python3 blender/caseback_print.py   ->  blender/textures/caseback_print_5057G.png (white, alpha = print)
-import os
+# The 5057R (1997) has "CORTINA JUBILEE WATCH" in black serif capitals round the window's edge, tops
+# toward the centre, counter-clockwise from about nine o'clock (seen from the back) round the bottom to
+# about four; on its caseback photo "TINA" stands by the train bridge's "240/164" and "JUBILEE" over
+# the balance:
+#   VARIANT=5057R python3 blender/caseback_print.py  ->  caseback_print_5057R.png (black, alpha = print)
+import os, math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +25,47 @@ LINES = [            # (text or (main, superscript, rest), baseline y, centre x)
     (("50", "th", " Anniversary"), -1.075, 0.65),
     ("Since 1972", -4.15, 0.7),
 ]
+
+
+ARC = dict(text="CORTINA JUBILEE WATCH", cap=1.85, baseline_r=12.95, start=176.0, end=362.0, opacity=0.93,
+           font="/System/Library/Fonts/Supplemental/Times New Roman.ttf")
+
+
+def main_arc():
+    """Capitals set round the window, tops toward the centre, counter-clockwise as seen from the back."""
+    k = N / (2 * R)
+    ss = 4                                    # draw each letter large, then scale down (crisp)
+    a = Image.new("L", (N, N), 0)
+    f = ImageFont.truetype(ARC["font"], round(ARC["cap"] / 0.66 * k * ss))
+    d0 = ImageDraw.Draw(Image.new("L", (8, 8)))
+    text = ARC["text"]
+    widths = [d0.textlength(ch, font=f) / ss / k for ch in text]            # mm
+    span = math.radians(ARC["end"] - ARC["start"]) * ARC["baseline_r"]      # mm of arc
+    track = (span - sum(widths)) / (len(text) - 1)
+    print(f"arc {span:.1f} mm, letters {sum(widths):.1f} mm, tracking {track:.2f} mm")
+    s_ = 0.0
+    for ch, w in zip(text, widths):
+        if ch != " ":
+            th = math.radians(ARC["start"]) + (s_ + w / 2) / ARC["baseline_r"]   # centre of the letter
+            g = Image.new("L", (int(w * k * ss) + 40, int(ARC["cap"] * 1.6 * k * ss)), 0)
+            dg = ImageDraw.Draw(g)
+            dg.text((g.width / 2, g.height * 0.8), ch, font=f, fill=255, anchor="ms")
+            # its up points to the centre: rotate by (th + 90°), scale down, paste centred on the arc
+            g = g.rotate(math.degrees(th) + 90, resample=Image.BICUBIC, expand=True)
+            g = g.resize((max(1, g.width // ss), max(1, g.height // ss)), Image.LANCZOS)
+            # the letter's baseline sits at 0.8 of its box's height, so the box's centre is 0.3 of that
+            # height above the baseline: inward, toward the window's centre
+            inward = ARC["cap"] * 1.6 * 0.3
+            cx_mm = (ARC["baseline_r"] - inward) * math.cos(th)
+            cy_mm = (ARC["baseline_r"] - inward) * math.sin(th)
+            px, py = (cx_mm + R) * k - g.width / 2, (R - cy_mm) * k - g.height / 2
+            a.paste(255, (int(round(px)), int(round(py))), g)
+        s_ += w + track
+    a = a.point(lambda v: int(v * ARC["opacity"]))
+    out = Image.merge("RGBA", (Image.new("L", (N, N), 12),) * 3 + (a,))
+    path = os.path.join(HERE, "textures", "caseback_print_5057R.png")
+    out.save(path)
+    print("wrote", path)
 
 
 def main():
@@ -47,4 +93,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main_arc() if os.environ.get("VARIANT") == "5057R" else main()

@@ -163,7 +163,38 @@ and `hairspring_breathe` (morph weights: the coils wind and unwind with the bala
   (`hand_hour`, `hand_minute`, `hand_seconds`, `hand_date`, `hand_power`) pivoting about local Z.
   `vendor/three/addons/loaders/GLTFLoader.js` (+ `utils/SkeletonUtils.js`) were added from three r186.
 
-Still open for the Blender model: 5057R variant (rose gold, white dial, its own caseback photo); strap
+### 5057R (1997, Cortina Watch 25th Jubilee): same build, `VARIANT="5057R"`
+
+`build_5057.py` builds either reference from one table (`VARIANTS`): pass `{"VARIANT": "5057R"}` in the exec
+globals, then `export_glb.py` with the same → `assets/models/5057R.glb`; the scene is `blender/5057R.blend`
+(one watch in the scene at a time). The viewer shows it with `dev/glb.html?model=5057R`. Photos in
+`watch photos/5057r/`. Differences from the 5057G:
+- Case, bezel, lugs, crown, clasp: 18K rose gold as photographed, a pale warm gold more yellow than copper
+  (`#F0CDA0`, satin `#E2BE93`, rehaut `#E0BC94`); the movement keeps its rhodium and
+  steel (`M["mvt_polish"]`, `M["mvt_satin"]`). Black strap with a tan lining.
+- Dial: `blender/dial_5057r_from_photo.py` (the straight-on 900 px photo, registered by an affine fit of its
+  four hand pivots to the 5057G's layout, residuals ≤ 0.08 mm). The photo's hands are taken out where the
+  3D hands stand (their own footprints, plus the dark pixels touching them) and filled with the tone just
+  round them; Roman numerals and print stay printed (no applied numerals). Black polished hands posed as
+  photographed (hour 143.0°, minute 22.3°, power 11.6°, date 111.0°, seconds -73.2°).
+- Moon disc: blue sky, gold moons and stars.
+- Rotor: "22K" engraved along the straight edge past the outer screw (as in the user's close-up).
+- Movement engravings: the older calibre's own thin lettering, lifted straight from
+  `watch photos/5057r/best movement photo.jpg` by `blender/engravings_5057r_photo.py` (a homography on seven
+  pivots and jewels, residuals ≤ 0.09 mm; gold strokes on the barrel and train bridges only, grown into the
+  duller gold of letters in shadow). PATEK PHILIPPE / GENEVE SWISS, TWENTY-NINE / JEWELS and 240/164 are the
+  photo's own strokes. The photo's serial is half hidden by a red box: its "3165" is kept and the rest is a
+  placeholder made from the photo's "164" glyphs scaled down (3165164, not a real number). The Geneva Seal is
+  the photo's own pixels (`textures/engravings_5057R_seal.png`, composited into the colour map), moved from
+  that movement's lower-left spot to where the Cortina Jubilee 5057R has it (`45723_ext4_3377.jpg`): just
+  past the P of PATEK by the rim, clear of the caseback print. Order: `python3 blender/engravings_5057r_photo.py`,
+  then `VARIANT=5057R python3 blender/movement_finish.py` (writes `movement_finish_5057R_*`). The older
+  typeset version, `blender/engravings_5057r.py` (Baskerville fitted to `old 240 movement.jpg`), is kept
+  but no longer used; running it overwrites `engravings_5057R.png`.
+- Caseback print: "CORTINA JUBILEE WATCH" in black serif capitals round the window, tops toward the centre,
+  from about nine o'clock round the bottom to about two (`VARIANT=5057R python3 blender/caseback_print.py`).
+
+Still open for the Blender model: strap
 holes; engraving on the clasp blade; tune materials under the gallery's own lighting (the dev viewer's dark
 environment makes the movement read paler than in Blender); swap `build5057('5057G')` for the GLB in the gallery.
 

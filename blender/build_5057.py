@@ -1,7 +1,10 @@
-# Patek Philippe Ref. 5057G-010 "Cortina Watch 50th Anniversary", built in Blender.
+# Patek Philippe Ref. 5057, the Cortina Watch jubilee pieces, built in Blender:
+#   5057G-010 (2022, 50th Anniversary): white gold, slate sunburst dial, applied white-gold numerals
+#   5057R    (1997, 25th Jubilee):      rose gold, white dial with black print, black hands
+# Same case, dial layout and calibre 240; VARIANT picks one (default 5057G).
 #
 # Run inside Blender (Scripting tab, or via the MCP):
-#   exec(open("/path/to/cortinawatch/blender/build_5057.py").read())
+#   exec(open("/path/to/cortinawatch/blender/build_5057.py").read(), {"VARIANT": "5057R", "CORTINA_ROOT": ...})
 #
 # Units: millimetres (scene unit scale 0.001). Front coordinates match js/watch5057.js:
 # +X toward the crown at 3, +Y toward 12, +Z out of the dial. z = 0 is the dial surface.
@@ -39,6 +42,21 @@ DATE = (-3.529, -6.128)  # pointer date (dot circle r 4.804)
 SECS = (7.369, -6.272)   # small seconds (tick ring r 3.38)
 # hand angles as photographed (degrees from +X, counter-clockwise), corrected for parallax
 POSE = dict(hour=143.6, minute=29.3, power=16.0, date=220.0, seconds=96.5)
+
+# ------------------------------------------------------------------ the two references
+VARIANT = globals().get("VARIANT", "5057G")
+VARIANTS = {
+    "5057G": dict(metal=0xE4E5E7, satin=0xD6D7DA, metal_name="WG", rehaut=0x34363A, hands="white gold",
+                  dial="dial_5057G_photo", numerals=True, moon="navy", lining=0x947C66,
+                  print="caseback_print_5057G.png", finish="movement_finish", pose=POSE),
+    # 18K rose gold as photographed: a pale, warm gold (hue ~33°), more yellow than copper
+    "5057R": dict(metal=0xF0CDA0, satin=0xE2BE93, metal_name="RG", rehaut=0xE0BC94, hands="black",
+                  dial="dial_5057R_photo", numerals=False, moon="blue", lining=0xB39B78,
+                  print="caseback_print_5057R.png", finish="movement_finish_5057R",
+                  pose=dict(hour=143.0, minute=22.3, power=11.6, date=111.0, seconds=-73.2)),   # as photographed (dial_5057r_from_photo.py)
+}
+VAR = VARIANTS[VARIANT]
+POSE = VAR["pose"]
 CROWN_Z = -3.3
 R_WIN = 13.4           # caseback window (measured on the caseback photo)
 # movement levels (z; the bridge side faces the caseback, i.e. -Z)
@@ -53,7 +71,11 @@ LUG_X = 11.0           # lug centre (20 mm between lugs)
 
 # ------------------------------------------------------------------ helpers
 def coll():
-    name = "Watch5057G"
+    name = "Watch" + VARIANT
+    for other in [c_ for c_ in bpy.data.collections if c_.name.startswith("Watch5057") and c_.name != name]:
+        for o in list(other.all_objects):     # one reference in the scene at a time
+            bpy.data.objects.remove(o, do_unlink=True)
+        bpy.data.collections.remove(other)
     c = bpy.data.collections.get(name)
     if c:
         for o in list(c.all_objects):
@@ -152,15 +174,20 @@ def srgb(h):
 # ------------------------------------------------------------------ materials
 def materials():
     M = {}
-    wg = srgb(0xE4E5E7)
-    M["polish"] = mat("WG polished", wg, 1, 0.07)
-    M["hob"] = mat("WG hobnail", wg, 1, 0.05)
+    g = srgb(VAR["metal"])
+    nm_ = VAR["metal_name"]
+    M["polish"] = mat(f"{nm_} polished", g, 1, 0.07)
+    M["hob"] = mat(f"{nm_} hobnail", g, 1, 0.05)
     # no anisotropy: the lathed parts carry no UVs, and without a tangent direction three.js smears
     # an anisotropic highlight over the whole surface
-    M["satin"] = mat("WG brushed", srgb(0xD6D7DA), 1, 0.3, **{"Anisotropic": 0.0})
-    M["dark"] = mat("Rehaut grey", srgb(0x34363A), 0.7, 0.32)
+    M["satin"] = mat(f"{nm_} brushed", srgb(VAR["satin"]), 1, 0.3, **{"Anisotropic": 0.0})
+    M["dark"] = mat("Rehaut", srgb(VAR["rehaut"]), 0.7 if VARIANT == "5057G" else 1.0, 0.32)
+    # the movement is rhodium-plated and steel in both references
+    M["mvt_polish"] = mat("Movement polished", srgb(0xE4E5E7), 1, 0.07)
+    M["mvt_satin"] = mat("Movement satin", srgb(0xD6D7DA), 1, 0.3, **{"Anisotropic": 0.0})
     M["black"] = mat("Black", srgb(0x0A0A0C), 0.0, 0.6)
-    M["hand"] = mat("Hands WG", srgb(0xF0F1F3), 1, 0.05)
+    M["hand"] = (mat("Hands WG", srgb(0xF0F1F3), 1, 0.05) if VAR["hands"] == "white gold"
+                 else mat("Hands black", srgb(0x16171B), 1, 0.12))       # black, polished
     M["ruby"] = mat("Ruby", srgb(0xB02A55), 0, 0.05, **{"Coat Weight": 1.0})
     # sapphire as a thin transparent coat rather than transmission: crisp under it, and cheap in
     # three.js (no transmission pass re-rendering the movement and dial at lower quality)
@@ -464,9 +491,14 @@ def build_moon_disc(M, f):
     and polished stars in relief, set at the phase photographed (rotate moon_disc about Z to change it)."""
     w = f["moon_window"]
     cx, cy = w["cx"], w["cy"]
-    navy = mat("Moon disc lacquer", srgb(0x0E1830), 0, 0.12, **{"Coat Weight": 1.0, "Coat Roughness": 0.05})
-    frost = mat("Moon frosted white gold", srgb(0xE3E5E8), 1, 0.5)
-    star_m = mat("Stars white gold", srgb(0xEEF0F2), 1, 0.3)
+    if VAR["moon"] == "navy":
+        navy = mat("Moon disc lacquer", srgb(0x0E1830), 0, 0.12, **{"Coat Weight": 1.0, "Coat Roughness": 0.05})
+        frost = mat("Moon frosted white gold", srgb(0xE3E5E8), 1, 0.5)
+        star_m = mat("Stars white gold", srgb(0xEEF0F2), 1, 0.3)
+    else:   # 5057R: blue enamel sky, gold moons and stars
+        navy = mat("Moon disc blue", srgb(0x17254F), 0, 0.12, **{"Coat Weight": 1.0, "Coat Roughness": 0.05})
+        frost = mat("Moon gold", srgb(0xD9A86A), 1, 0.35)
+        star_m = mat("Stars gold", srgb(0xE6B877), 1, 0.25)
     root = bpy.data.objects.new("moon_disc", None)
     root.empty_display_size = 2
     C.objects.link(root)
@@ -496,13 +528,19 @@ def build_numerals(M, f):
 def build_inside(M):
     # dial: the photographed dial (two photos, hands removed; blender/dial_from_photo.py),
     # including its moon phase, since the watch is shown static
-    dial_m = tex_mat("Dial 5057G (photo)", "dial_5057G_photo_color.jpg", orm_img="dial_5057G_photo_orm.png",
-                     coat=0.35, coat_rough=0.1, aniso=0.5, emission=0.12)
+    dn = VAR["dial"]
+    if VARIANT == "5057G":
+        dial_m = tex_mat(f"Dial {VARIANT} (photo)", f"{dn}_color.jpg", orm_img=f"{dn}_orm.png",
+                         coat=0.35, coat_rough=0.1, aniso=0.5, emission=0.12)
+    else:   # white enamel-look dial: glossy, no sunburst
+        dial_m = tex_mat(f"Dial {VARIANT} (photo)", f"{dn}_color.jpg", orm_img=f"{dn}_orm.png",
+                         coat=0.6, coat_rough=0.06, emission=0.1)
     feats = dial_features()
     outline = arc(0, 0, R_DIAL, 0, TAU, 360)
     flat_plate(outline, [moon_window(feats["moon_window"])], 0.0, 0.4, "dial", [dial_m, dial_m], uv=(0, 0, DIAL_TEX_R))
     build_moon_disc(M, feats)
-    build_numerals(M, feats)
+    if VAR["numerals"]:      # the 5057G's are applied white gold; the 5057R's are printed (in the dial)
+        build_numerals(M, feats)
     # rehaut: the narrow grey wall between the dial and the crystal
     lathe([(R_DIAL - 0.02, -0.4), (R_DIAL - 0.02, 0.02), (14.47, 1.26), (14.6, 1.26), (14.6, -0.4)], name="rehaut",
           mat=M["dark"], close=True, smooth_angle=20 * DEG)
@@ -540,12 +578,12 @@ def build_inside(M):
           name="caseback_glass", mat=M["glass"], close=True, smooth_angle=60 * DEG)
     # the anniversary print, on the sapphire's inside face: "Cortina Watch / 50th Anniversary / Since 1972"
     # in translucent white (blender/caseback_print.py, measured on the caseback photograph)
-    if os.path.exists(os.path.join(TEX, "caseback_print_5057G.png")):
-        pm = mat("Caseback print", (1, 1, 1), 0, 0.55)
+    if os.path.exists(os.path.join(TEX, VAR["print"])):
+        pm = mat("Caseback print", (1, 1, 1), 0, 0.9, **{"Specular IOR Level": 0.0})   # ink: no sheen of its own
         nt = pm.node_tree
         bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
         t = nt.nodes.new("ShaderNodeTexImage")
-        t.image = image("caseback_print_5057G.png")
+        t.image = image(VAR["print"])
         t.interpolation = "Cubic"
         nt.links.new(t.outputs["Color"], bsdf.inputs["Base Color"])
         nt.links.new(t.outputs["Alpha"], bsdf.inputs["Alpha"])
@@ -656,13 +694,14 @@ def build_movement(M):
     data = json.load(open(os.path.join(ROOT, "blender", "movement.json")))
     H = data["texture_half_size"]
     W = lambda pts: [(-x, y) for x, y in pts]          # photo view (from the back) -> watch frame
-    mv = tex_mat("Movement finish (rhodium)", "movement_finish_color.jpg", orm_img="movement_finish_orm.png")
+    fin = VAR["finish"]
+    mv = tex_mat("Movement finish (rhodium)", f"{fin}_color.jpg", orm_img=f"{fin}_orm.png")
     nt = mv.node_tree
     bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     nm = nt.nodes.new("ShaderNodeNormalMap")
     nm.inputs["Strength"].default_value = 1.0
     ni = nt.nodes.new("ShaderNodeTexImage")
-    ni.image = image("movement_finish_normal.png", "Non-Color")
+    ni.image = image(f"{fin}_normal.png", "Non-Color")
     nt.links.new(ni.outputs["Color"], nm.inputs["Color"])
     nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
     gold_w = mat("Gold wheels polished", srgb(0xDDA866), 1, 0.08)
@@ -686,7 +725,7 @@ def build_movement(M):
                   if not any(_inside((-x, y), W(b)) for b in data["bridges"].values())
                   and not any(_inside((-x, y), pk) for pk in pockets)]
     pockets += plate_pins
-    o = flat_plate(arc(0, 0, R_WIN, 0, TAU, 256), pockets, Z_SINK, Z_SINK - Z_PLATE, "movement_plate", [M["satin"], mv])
+    o = flat_plate(arc(0, 0, R_WIN, 0, TAU, 256), pockets, Z_SINK, Z_SINK - Z_PLATE, "movement_plate", [M["mvt_satin"], mv])
     photo_faces(o)
     # the sinkings' floor, with a deeper pit for the balance and escapement (escape wheel and pallet fork
     # under the balance, hairspring over its arms)
@@ -731,7 +770,7 @@ def build_movement(M):
         holes = [arc(pt[0], pt[1], rs, TAU, 0, 40) for pt, rj, rs in in_bridge[name]]
         if name == "pallet_bridge":
             holes += [arc(pj[0][0], pj[0][1], pj[2], TAU, 0, 40)] if pj else []
-            o = flat_plate(outline, holes, Z_SINK + 0.2, 0.17, PART_NAMES.get(name, name), [M["polish"], mv])
+            o = flat_plate(outline, holes, Z_SINK + 0.2, 0.17, PART_NAMES.get(name, name), [M["mvt_polish"], mv])
             photo_faces(o)
             bv = o.modifiers.new("anglage", "BEVEL")
             bv.width, bv.segments, bv.limit_method, bv.angle_limit, bv.material = 0.06, 2, "ANGLE", 40 * DEG, 0
@@ -739,7 +778,7 @@ def build_movement(M):
             continue
         holes += [arc(pt[0], pt[1], r, TAU, 0, 48) for pt, r, _ in chatons if ring_in(pt, r, outline)]
         holes += [arc(pt[0], pt[1], r + 0.12, TAU, 0, 32) for pt, r in pin_holes if ring_in(pt, r + 0.12, outline)]
-        o = flat_plate(outline, holes, Z_PLATE, Z_PLATE - Z_BRIDGE, PART_NAMES.get(name, name), [M["polish"], mv])
+        o = flat_plate(outline, holes, Z_PLATE, Z_PLATE - Z_BRIDGE, PART_NAMES.get(name, name), [M["mvt_polish"], mv])
         photo_faces(o)
         bv = o.modifiers.new("anglage", "BEVEL")
         bv.width, bv.segments, bv.limit_method, bv.angle_limit = 0.14, 3, "ANGLE", 40 * DEG   # polished anglage
@@ -1051,7 +1090,13 @@ def build_movement(M):
     ENGRAVE = 0.12
     # top layer, pierced by the cross; its visible face is the striped gold
     holes = [arc(-sx_ - pv[0], sy_ - pv[1], 0.6, TAU, 0, 32) for sx_, sy_ in data.get("rotor_screws", [])]
-    o = flat_plate(sector, [cross[::-1]] + holes, -0.3 + ENGRAVE, ENGRAVE, "1143_rotor", [gold_pol, g22])
+    marks = []
+    if VARIANT == "5057R":
+        # "22K" engraved along the straight edge past the outer screw, 4.65 mm out, 1 mm in from the
+        # edge, 0.8 mm capitals reading away from the pivot (as photographed; seen from the back, so
+        # mirrored in the watch frame)
+        marks = [[(-4.65 - u, -0.98 + v) for u, v in lp] for lp in text_outlines("22K", 0.8)]
+    o = flat_plate(sector, [cross[::-1]] + holes + marks, -0.3 + ENGRAVE, ENGRAVE, "1143_rotor", [gold_pol, g22])
     for f in o.data.polygons:
         f.material_index = 1 if f.normal.z < -0.9 else 0
     planar_uv(o.data, 0, 0, 7.4)
@@ -1093,13 +1138,13 @@ def build_movement(M):
               close=True, smooth_angle=40 * DEG)
     o.matrix_basis = Matrix.Translation((pv[0], pv[1], Z_ROTOR + 0.03))
     o = lathe([(0.8, 0.3), (0.8, 0.08), (1.42, 0.08), (1.42, 0.3)], segs=96, name="1143_bearing_race",
-              mat=M["satin"], close=True, smooth_angle=40 * DEG)
+              mat=M["mvt_satin"], close=True, smooth_angle=40 * DEG)
     o.matrix_basis = Matrix.Translation((pv[0], pv[1], Z_ROTOR + 0.03))
     for k in range(4):
         a = math.radians(30 + 90 * k)
         ca, sa = math.cos(a), math.sin(a)
         nb = [(pv[0] + ca * u - sa * v, pv[1] + sa * u + ca * v) for u, v in ((1.38, -0.07), (1.64, -0.07), (1.64, 0.07), (1.38, 0.07))]
-        flat_plate(nb, [], Z_ROTOR + 0.33, 0.31, f"1143_bearing_notch_{k + 1}", [M["satin"], M["satin"]])
+        flat_plate(nb, [], Z_ROTOR + 0.33, 0.31, f"1143_bearing_notch_{k + 1}", [M["mvt_satin"], M["mvt_satin"]])
     # it turns: one revolution every 8 s, looping (baked into the GLB as an animation clip)
     sc = bpy.context.scene
     sc.render.fps = 60
@@ -1280,6 +1325,47 @@ def calatrava_cross(arm_tip=5.4):
     return [(x * arm_tip, y * arm_tip) for x, y in data["outline"]]
 
 
+def text_outlines(body, cap):
+    """Glyph outlines of a text in Blender's built-in sans, cap height `cap` mm, centred on (0, 0),
+    reading +X with tops +Y: a list of point loops (outer contours; counters come as loops too)."""
+    cu = bpy.data.curves.new("_tmp_text", "FONT")
+    cu.body = body
+    cu.size = 1.0
+    ob = bpy.data.objects.new("_tmp_text", cu)
+    bpy.context.scene.collection.objects.link(ob)
+    me = ob.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    ob.to_mesh_clear()
+    bpy.data.objects.remove(ob)
+    bpy.data.curves.remove(cu)
+    edges = [e for e in bm.edges if len(e.link_faces) == 1]
+    nxt = {}
+    for e in edges:   # boundary edges, each from its face's winding
+        f = e.link_faces[0]
+        for l in f.loops:
+            if l.edge == e:
+                nxt[l.vert.index] = l.link_loop_next.vert.index
+    co = {v.index: (v.co.x, v.co.y) for v in bm.verts}
+    bm.free()
+    loops, seen = [], set()
+    for start in nxt:
+        if start in seen:
+            continue
+        loop, v = [], start
+        while v not in seen:
+            seen.add(v)
+            loop.append(co[v])
+            v = nxt[v]
+        if len(loop) > 2:
+            loops.append(loop)
+    xs = [p[0] for lp in loops for p in lp]
+    ys = [p[1] for lp in loops for p in lp]
+    k = cap / (max(ys) - min(ys))
+    cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+    return [[((x - cx) * k, (y - cy) * k) for x, y in lp] for lp in loops]
+
+
 def keeper(name, w, t, length, wall, mat_):
     """Leather keeper loop round a strap of width w and thickness t; local X across, Y along, Z up."""
     def rrect(hw, ht, r, n=6):
@@ -1316,7 +1402,7 @@ def build_strap(M):
     nimg.image = image("croc_normal.png", "Non-Color")
     nt.links.new(nimg.outputs["Color"], nm.inputs["Color"])
     nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
-    lining = mat("Lining calf brown", srgb(0x947C66), 0, 0.65)  # sampled from the clasp photos (lit: ~156,138,123)
+    lining = mat("Lining calf", srgb(VAR["lining"]), 0, 0.65)  # 5057G: sampled from the clasp photos
 
     # curled back as on a display cushion, but only 108° so the tails stay clear of the caseback
     # when the watch is seen from behind
@@ -1379,7 +1465,7 @@ def build():
     build_inside(M)
     build_strap(M)
     # one root node for the whole watch (identity transform, so nothing moves)
-    root = bpy.data.objects.new("watch_5057G", None)
+    root = bpy.data.objects.new("watch_" + VARIANT, None)
     root.empty_display_size = 20
     C.objects.link(root)
     for o in C.objects:

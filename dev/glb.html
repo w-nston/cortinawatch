@@ -3,7 +3,7 @@
 <script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
 <style>html,body{margin:0;background:#111;overflow:hidden;color:#bbb;font:12px/1.4 system-ui,sans-serif}canvas{display:block}
 #hud{position:fixed;left:12px;bottom:10px;opacity:.7}</style></head>
-<body><div id="hud">drag to rotate · shift-drag to turn it about its axis (the rotor follows) · ?view=front|back|angle|macro|side|backangle</div><script type="module">
+<body><div id="hud">?model=5057G|5057R · drag to rotate · shift-drag to turn it about its axis (the rotor follows) · ?view=front|back|angle|macro|side|backangle</div><script type="module">
 // Viewer for assets/models/5057G.glb, the Blender build (blender/build_5057.py): hands static as
 // photographed, the movement's mini-rotor turning (animation clip in the GLB).
 // The GLB is in millimetres with +Z out of the dial, the same frame as js/watch5057.js,
@@ -38,7 +38,8 @@ if (view === 'back' || view === 'backangle') key.position.set(40, 50, -90);
 
 const root = new THREE.Group();
 scene.add(root);
-const gltf = await new GLTFLoader().loadAsync('../assets/models/5057G.glb?t=' + Date.now()) // dev: never a stale model;
+// ?model=5057R shows the 1997 Cortina Jubilee piece (default: the 5057G)
+const gltf = await new GLTFLoader().loadAsync(`../assets/models/${q.get('model') || '5057G'}.glb?t=` + Date.now()); // dev: never a stale model
 gltf.scene.traverse((o) => {
   if (!o.isMesh) return;
   o.castShadow = o.receiveShadow = true;

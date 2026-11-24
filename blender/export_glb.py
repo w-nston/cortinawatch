@@ -1,15 +1,16 @@
-# Export the Watch5057G collection to assets/models/5057G.glb.
+# Export the built watch (collection Watch<VARIANT>) to assets/models/<VARIANT>.glb (5057G or 5057R).
 # Keeps Blender's axes (no +Y-up conversion) so the GLB uses the same frame as js/watch5057.js:
 # +X crown, +Y 12 o'clock, +Z out of the dial, 1 unit = 1 mm.
 import bpy, os
 
 ROOT = globals().get("CORTINA_ROOT")
-out = os.path.join(ROOT, "assets", "models", "5057G.glb")
+VARIANT = globals().get("VARIANT", "5057G")
+out = os.path.join(ROOT, "assets", "models", f"{VARIANT}.glb")
 os.makedirs(os.path.dirname(out), exist_ok=True)
 
 for o in bpy.context.view_layer.objects:
     o.select_set(False)
-for o in bpy.data.collections["Watch5057G"].all_objects:
+for o in bpy.data.collections["Watch" + VARIANT].all_objects:
     o.hide_set(False)
     o.select_set(True)
 
