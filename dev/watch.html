@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>5057 studio test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#111;overflow:hidden}canvas{display:block}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { studioEnvironment } from '../js/studio.js';
+import { build5057 } from '../js/watch5057.js';
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.NeutralToneMapping; renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101010);
+
+scene.environment = studioEnvironment(renderer);
+scene.environmentIntensity = 0.9;
+const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(-40, 50, 90); key.castShadow = true;
+Object.assign(key.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40 }); key.shadow.mapSize.setScalar(2048);
+scene.add(key, new THREE.HemisphereLight(0xffffff, 0x333333, 0.4));
+const w = build5057(q.get('v') || '5057G');
+scene.add(w.root);
+const cam = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 1, 1000);
+const view = q.get('view') || 'front';
+const V = { front: [0, 0, 130], back: [0, 0, -130], angle: [55, -40, 105], macro: [-6, -8, 48], backangle: [-40, 30, -105], side: [130, 0, 10] }[view];
+cam.position.set(...V); cam.up.set(0, 1, 0); cam.lookAt(0, 0, view === 'macro' ? 1 : 0);
+if (view === 'back' || view === 'backangle') key.position.set(40, 50, -90);
+const t0 = performance.now();
+await w.ready;
+function frame() { w.update((performance.now() - t0) / 1000, q.get('time') ? new Date(q.get('time')) : new Date()); renderer.render(scene, cam); requestAnimationFrame(frame); }
+frame();
+window.__ready = true;
+</script></body></html>
