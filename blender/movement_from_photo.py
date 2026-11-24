@@ -63,17 +63,66 @@ BRIDGES = {   # points beyond the window are clamped onto it
                          (9.8, -5.45), (10.6, -5.6), (13.5, -6.5), (12.5, -10.5), (8.5, -13.5), (5.0, -12.0),
                          (4.8, -10.6), (2.8, -10.1), (0.6, -9.8), (-0.6, -9.3)]),
 }
-SCREWS = OLD([(-5.0, 12.4), (-12.8, 3.0), (-10.15, -1.95), (-11.55, -4.6), (-5.25, -10.2), (6.2, -8.3),
-              (1.0, 13.2), (9.0, 9.2)])
+# screw heads: circle detection on the photo's edges, checked by eye (jewels, hubs and the engraved
+# regulator mark rejected; three missed heads added)
+SCREWS = [(-4.36, 11.22), (1.27, 11.97), (9.34, 8.19), (-11.83, 1.64), (-9.32, -3.0), (-10.62, -5.75),
+          (6.95, -9.54), (11.65, 3.59), (-5.22, -10.84), (-1.42, -10.8, 0.36), (0.06, -11.6, 0.36)]   # last two: the cock head's small screws
+# the two round "screws" on the rotor in the photo are wheel 1497's screws (51497) seen through
+# holes in the rotor 1143 (parts diagram); they stay put while the rotor's holes sweep past
+ROTOR_SCREWS = [(4.46, -0.91), (8.64, -0.94)]
+EXTRA_JEWELS = [(3.62, 11.6, 0.42), (4.91, 8.57, 0.42),   # darker rubies the colour test missed
+                (-10.86, 2.62, 0.3)]                      # beside the barrel bridge's cutout
+# Shapes the edge tracer cannot see, read on 1 mm-gridded close-ups of the photo (x, y, r):
+#   the barrel bridge's curved cutout at 9 o'clock (beside "SWISS"): a round bite out of its edge
+#   down to the plate, next to the screw at (-11.83, 1.64);
+#   the balance cock runs on under the rotor's rest position to the window's edge.
+CUTOUTS = {"bridge_train": [(-12.16, 3.48, 1.14)]}
+RIM_BAND = 12.4          # a bridge reaching past this radius runs on to the window (the photo blurs there)
+# the automatic bridge's tail runs under its end screw to the rim (the tracer stops at the screw head)
+PATCHES = {"bridge_centre": [[(8.9, 7.62), (10.55, 7.12), (11.4, 7.6), (10.3, 8.7), (9.6, 8.4)]]}
+# the cock's head, drawn clean (the tracer frays on the balance under it): a disc round the balance
+# jewel and the arm between its straight edges. The crescent below it with two small screws is the
+# pallet bridge 125 (parts diagram), kept clear of the head.
+COCK_HEAD = {"centre": (0.52, -9.38), "r": 1.8, "arm_top": -7.48, "arm_bottom": -11.15, "replace_r": 2.7}
+COCK_WEDGE = [(5.0, -11.45), (5.35, -11.6), (7.5, -14.5), (16.0, -9.0), (10.6, -6.25)]
+ROTOR_PIT = 7.35          # every bridge stops at this radius round the rotor's pivot: the rotor turns in a pit
+# Small finishing details (x, y, r):
+#   polished countersunk holes (steady-pin and tool holes) in the bridges;
+#   gold chatons: rubies (or the barrel arbor's steel pivot) set in polished gold rings.
+PIN_HOLES = [(0.94, 2.7, 0.2), (-9.86, -0.17, 0.25), (-12.19, -2.33, 0.2), (5.56, -8.19, 0.3), (9.44, -7.62, 0.3), (5.53, -10.69, 0.3)]
+CHATONS = [(-5.77, 5.14, 0.42, "steel"),     # barrel arbor bushing, barrel bridge 105
+           (-4.79, -7.63, 0.73, "ruby"),     # train bridge 110
+           (0.52, -9.38, 0.62, "ruby")]      # balance cock 121: the balance jewel, with its shock spring
+ROTOR_PIVOT = (6.47, 0.06)  # the hub's bearing ring (r 1.55) and the cross and two holes are symmetric about x 6.5
 SCREW_R = 0.62
-# The visible train, photo-view mm, read on 1 mm grids of the recentred texture (centre x, y,
-# tip radius, teeth, spokes). The third wheel is centred on its pivot jewel; the large wheel's
-# centre is fitted to its rim (most of it runs under the rotor).
-GOLD_GEARS = {"centre_wheel": (3.2, 1.19, 5.86, 96, 4), "third_wheel": (2.08, 7.58, 3.4, 75, 5),
-              "fourth_wheel": (-3.6, -2.9, 2.6, 70, 5)}
+# The visible train, photo-view mm (centre x, y, tip radius, teeth, spokes). Circles fitted to the gold
+# teeth seen past the barrel bridge's edge (residuals < 0.05 mm): the long toothed arc beside "ADJUSTED"
+# is the mainspring barrel's rim (415, on the barrel bridge's bushing, r 5.1 to the tooth roots); below it
+# the wheel it drives (200, r 2.67, its pinion on the barrel's teeth: centres 6.4 mm apart). The fourth
+# wheel carries the small seconds: on the train bridge's jewel (-7.14, -6.06), meshing with the escape pinion.
+# Names are Patek Philippe's part numbers from the Calibre 240 parts diagram ("watch photos/240 movement.jpg").
+GOLD_GEARS = {"200_centre_wheel": (-3.62, -0.91, 2.67, 72, 5), "1481_reduction_wheel": (1.95, 6.55, 2.6, 64, 5),
+              "210_third_wheel": (-3.02, -3.32, 1.95, 56, 6), "220_fourth_wheel": (-7.14, -6.06, 2.56, 80, 4)}
+BARREL = (-5.77, 5.14, 5.4, 112)   # centre (the bushing), tooth tips, teeth; drum r 5.05
 # steel: crown wheel, the large ratchet/reduction wheel of the automatic winding, its partner
-STEEL_WHEELS = [(7.53, 5.22, 1.86), (6.22, 0.0, 3.8), (4.85, -4.95, 1.86)]
-BALANCE = (0.5, -9.25, 3.4)   # centre on the balance-staff jewel, rim outer radius
+STEEL_WHEELS = [(7.53, 5.22, 1.86), (6.22, 0.0, 3.8)]   # 1480 (under the automatic bridge), 1497 (under the rotor)
+# Gyromax balance: rim fitted to the photo's gold pixels (outer r 3.95, centre on the cock's jewel);
+# four arms (photo-view angles 81°, 171°, 261°, 351°), a slotted gold weight at each arm's end
+BALANCE = (0.52, -9.38, 3.95)
+BALANCE_ARMS = 82.0
+# Escapement, read on the photo with the parts diagram (702 escape wheel, 710 pallet lever, 125 pallet
+# bridge). The escape wheel turns under the train bridge's gold chaton (its jewel; 2.9 mm from the
+# seconds wheel's jewel at (-7.14, -6.06), the right distance to mesh with it). The pallet lever pivots
+# in the round jewel left of the balance (the pallet bridge's lobe). Its stones, as photographed: the
+# exit stone lies flat in its "⊐" socket, tip toward the wheel; the entry stone is long and upright, its
+# back showing at (-2.9, -10.1) and its tip under the balance's weight. Both tips sit just inside the
+# teeth (2.25 mm out).
+ESCAPE = (-4.77, -7.66, 2.25)
+ESC_TEETH = 20
+PALLET_PIVOT = (-2.22, -8.59)
+STONES = {"exit": ((-2.65, -7.72), (-2.17, -7.72)),       # (tip, back)
+          "entry": ((-3.0, -8.95), (-2.9, -10.42))}
+NOT_JEWELS = [(-2.36, -7.69), (-2.21, -8.57)]   # the exit stone and the pallet jewel: built with the escapement
 POCKET_MARGIN = 0.25   # sinkings in the baseplate round every wheel
 
 
@@ -102,7 +151,7 @@ def poly_mask(pts, X, Y):
     out = []
     for x, y in dense:
         r = math.hypot(x, y)
-        out.append((x * R_WIN / r, y * R_WIN / r) if r > R_WIN else (x, y))
+        out.append((x * R_WIN / r, y * R_WIN / r) if r > 12.95 else (x, y))   # bridges run to the window
     m = Path(out).contains_points(np.c_[X.ravel(), Y.ravel()]).reshape(X.shape)
     return m, out
 
@@ -132,7 +181,7 @@ def main():
                 best = (iou, cx, r0)
     _, px0, rr0 = best
     py0 = top
-    pivot = (float(px0), top)
+    pivot = ROTOR_PIVOT
     rot = (np.hypot(X - px0, Y - top) <= rr0 + 0.06) & (Y <= top + 0.05)
     print(f"rotor: pivot ({px0:.2f},{top:.2f}) r {rr0:.2f} (IoU {best[0]:.3f})")
 
@@ -157,8 +206,15 @@ def main():
     # ---- bridges, wheels, jewels
     bridges = {}
     bmask = np.zeros_like(rot)
-    for name, pts in BRIDGES.items():
-        m, outline = poly_mask(pts, X, Y)
+    traced = os.path.join(HERE, "movement_parts.json")
+    src = BRIDGES
+    if os.path.exists(traced):   # outlines traced on the photograph's edges (trace_movement.py)
+        tp = json.load(open(traced))["parts"]
+        src = {k: max(v["polys"], key=len) for k, v in tp.items() if v["class"] == "bridge" and v["polys"]}
+    for name, pts in src.items():
+        _, outline = poly_mask(pts, X, Y)
+        outline = refine_bridge(name, outline)
+        m, outline = poly_mask(outline, X, Y)
         bmask |= m
         bridges[name] = [[round(x, 4), round(y, 4)] for x, y in outline]
     gold2 = gold & ~under
@@ -189,10 +245,13 @@ def main():
         if a < 0.05:
             continue
         jewels.append([round(float(X[m].mean()), 4), round(float(Y[m].mean()), 4), round(math.sqrt(a / math.pi), 4)])
+    jewels += [list(j) for j in EXTRA_JEWELS]
+    jewels = [j for j in jewels if all(math.hypot(j[0] - x, j[1] - y) > 0.35 for x, y in NOT_JEWELS)]
     print(f"{len(wheels)} wheel outlines, {len(jewels)} jewels, {len(bridges)} bridges")
 
     # ---- sinkings: the union of a circle round every wheel (gold: fitted to its outline)
-    circles = [list(w) for w in STEEL_WHEELS] + [list(g_[:3]) for g_ in GOLD_GEARS.values()] + [list(BALANCE)]
+    circles = [list(w) for w in STEEL_WHEELS] + [list(g_[:3]) for g_ in GOLD_GEARS.values()] + [list(BALANCE), list(ESCAPE),
+                                                                                              list(BARREL[:3])]
     pk = np.zeros_like(rot)
     for cx_, cy_, r_ in circles:
         pk |= np.hypot(X - cx_, Y - cy_) < r_ + POCKET_MARGIN
@@ -205,7 +264,19 @@ def main():
         tm = lambda c: [[round(float((p_[1] - 1 + 0.5) / K - R), 4), round(float(R - (p_[0] - 1 + 0.5) / K), 4)]
                         for p_ in measure.approximate_polygon(c, tolerance=0.9)]
         pockets.append({"outer": tm(cs[0]), "islands": [tm(c) for c in cs[1:] if len(c) > 30]})
+    # the barrel bridge's cutout goes on down into the plate: a deep, shadowed round recess
+    from shapely.geometry import Point as _Pt
+    for cuts in CUTOUTS.values():
+        for cx_, cy_, r_ in cuts:
+            cut = _Pt(cx_, cy_).buffer(r_, 64).intersection(_Pt(0, 0).buffer(R_WIN - 0.3, 512))
+            pockets.append({"outer": [[round(x, 4), round(y, 4)] for x, y in cut.exterior.coords[:-1]], "islands": []})
     print(f"{len(circles)} wheel circles -> {len(pockets)} sinkings")
+    # the balance and escapement sit in a deeper pit (0.6 mm under the sinking floor): the escape wheel and
+    # pallet fork run under the balance, the hairspring over its arms, as photographed
+    pit = _Pt(BALANCE[0], BALANCE[1]).buffer(BALANCE[2] + 0.2, 128).union(_Pt(ESCAPE[0], ESCAPE[1]).buffer(ESCAPE[2] + 0.2, 64))
+    pit = pit.intersection(_Pt(0, 0).buffer(R_WIN - 0.35, 512)).simplify(0.01)
+    deep_pit = [[round(x, 4), round(y, 4)] for x, y in pit.exterior.coords[:-1]]
+    escapement = escapement_layout()
 
     # ---- maps
     L = img2.mean(2)
@@ -231,8 +302,13 @@ def main():
                "rotor": {"pivot": pivot, "radius": round(rr0, 4), "arc_centre": [round(float(px0), 4), round(float(py0), 4)]},
                "bridges": bridges, "wheels": wheels, "jewels": jewels,
                "steel_wheels": [list(w) for w in STEEL_WHEELS], "pockets": pockets,
-               "gold_gears": {k: list(v) for k, v in GOLD_GEARS.items()}, "balance": list(BALANCE),
-               "screws": [[round(x, 4), round(y, 4), SCREW_R] for x, y in SCREWS]},
+               "gold_gears": {k: list(v) for k, v in GOLD_GEARS.items()}, "balance": list(BALANCE), "barrel": list(BARREL),
+               "screws": [[round(sc[0], 4), round(sc[1], 4), sc[2] if len(sc) > 2 else SCREW_R] for sc in SCREWS],
+               "balance_arms_deg": BALANCE_ARMS, "deep_pit": deep_pit,
+               "hairspring_stud": [1.5, -11.37], "escapement": escapement,
+               "rotor_screws": [list(p) for p in ROTOR_SCREWS], "escape": list(ESCAPE),
+               "pin_holes": [list(h) for h in PIN_HOLES], "chatons": [list(c) for c in CHATONS],
+               "cutouts": {k: [list(c) for c in v] for k, v in CUTOUTS.items()}},
               open(os.path.join(HERE, "movement.json"), "w"))
     if SCR:
         dbg = img2.copy()
@@ -242,6 +318,91 @@ def main():
                 i, j = int((R - y) * K), int((x + R) * K)
                 dbg[max(0, i - 2):i + 2, max(0, j - 2):j + 2] = (255, 0, 0)
         Image.fromarray(dbg.astype(np.uint8)).resize((1024, 1024)).save(os.path.join(SCR, "mvt_layers.png"))
+
+
+def refine_bridge(name, outline):
+    """Cutouts, lobes and the rotor's pit on a traced bridge outline (shapely, photo-view mm)."""
+    from shapely.geometry import Polygon, Point, box
+    P = Polygon(outline).buffer(0)
+    # run on to the window: every 0.5° ray that meets the bridge beyond RIM_BAND gets the band to the rim
+    wedges = []
+    band = Point(0, 0).buffer(R_WIN + 0.4, 512).difference(Point(0, 0).buffer(RIM_BAND, 512))
+    near = P.intersection(band)
+    for k in range(720 if name != "pallet_bridge" else 0):
+        a0, a1 = math.radians(k * 0.5), math.radians(k * 0.5 + 0.5)
+        w = Polygon([(0, 0), (20 * math.cos(a0), 20 * math.sin(a0)), (20 * math.cos(a1), 20 * math.sin(a1))])
+        if near.intersection(w).area > 0.004:
+            wedges.append(w.intersection(band))
+    if wedges:
+        from shapely.ops import unary_union
+        P = P.union(unary_union(wedges).buffer(0.01))
+    for patch in PATCHES.get(name, []):
+        P = P.union(Polygon(patch))
+    if name == "balance_cock":
+        h = COCK_HEAD
+        c = Point(*h["centre"])
+        head = c.buffer(h["r"], 96).union(box(h["centre"][0], h["arm_bottom"], 3.4, h["arm_top"]))
+        P = P.difference(c.buffer(h["replace_r"], 96)).union(head)
+        P = P.union(Polygon(COCK_WEDGE).intersection(Point(0, 0).buffer(R_WIN + 0.5, 256)))
+    if name == "pallet_bridge":
+        # 125 is a ring round the balance staff (the roller turns in its hole) with a lobe for the pallet
+        # jewel; it lies under the balance. The tracer sees only the crescent outside the cock's head.
+        from shapely.ops import nearest_points
+        B = Point(*BALANCE[:2])
+        pv = Point(*PALLET_PIVOT)
+        near = nearest_points(P, pv)[0]
+        lobe = pv.buffer(0.45, 48).union(near.buffer(0.35, 32)).convex_hull
+        P = P.union(lobe).union(B.buffer(2.0, 96)).difference(B.buffer(0.75, 64))
+    P = P.buffer(0.3, 16).buffer(-0.3, 16)         # close the tracer's slits and notches
+    P = P.intersection(Point(0, 0).buffer(R_WIN, 512))
+    for cx, cy, r in CUTOUTS.get(name, []):       # a bite: the circle and its way out through the rim
+        d = math.hypot(cx, cy)
+        c = Point(cx, cy).buffer(r, 64)
+        P = P.difference(c.union(Point(cx * (d + 2) / d, cy * (d + 2) / d).buffer(r, 64)).convex_hull)
+    P = P.difference(Point(*ROTOR_PIVOT).buffer(ROTOR_PIT, 256))
+    if P.geom_type != "Polygon":
+        P = max(P.geoms, key=lambda g: g.area)
+    P = P.buffer(0.08, 16).buffer(-0.08, 16)        # no slivers or knife-edge corners
+    return [tuple(map(float, p)) for p in P.simplify(0.02).exterior.coords[:-1]]
+
+
+def escapement_layout():
+    """Escape wheel, pallet lever (fork, arms, stone sockets) and stones at rest, photo-view mm."""
+    from shapely.geometry import Polygon, Point
+    from shapely.ops import unary_union
+    ex, ey, re_ = ESCAPE
+    E, Pv, B = np.array([ex, ey]), np.array(PALLET_PIVOT), np.array(BALANCE[:2])
+    u = (B - Pv) / np.linalg.norm(B - Pv)
+    n = np.array([-u[1], u[0]])
+    LB = float(np.linalg.norm(B - Pv))
+    rect = lambda c, d, l0, l1, w: Polygon([c + d * l0 + np.array([-d[1], d[0]]) * w / 2, c + d * l1 + np.array([-d[1], d[0]]) * w / 2,
+                                            c + d * l1 - np.array([-d[1], d[0]]) * w / 2, c + d * l0 - np.array([-d[1], d[0]]) * w / 2])
+    parts = [Point(*Pv).buffer(0.32, 32), rect(Pv, u, 0.0, LB - 0.8, 0.22)]           # hub, lever arm
+    horns = rect(Pv, u, LB - 0.85, LB - 0.3, 0.5).difference(rect(Pv, u, LB - 0.62, LB - 0.2, 0.18))
+    parts.append(horns)                                                                # fork horns round the impulse pin
+    stones, slots = {}, []
+    for name, (tip, back) in STONES.items():
+        tip, back = np.array(tip), np.array(back)
+        L = float(np.linalg.norm(back - tip))
+        d = (back - tip) / L                                    # along the stone, tip to back
+        w = 0.26                                                # its face as photographed: 0.26-0.30 mm
+        side = np.array([-d[1], d[0]]) * w / 2
+        # the stone, its impulse face slanted at the tip
+        stones[name] = [list(map(float, p)) for p in (tip + side, back + side, back - side, tip + d * 0.09 - side)]
+        sock = rect(tip, d, L - 0.38, L + 0.12, 0.5)            # the arm's socket round the stone's back
+        sc = tip + d * (L - 0.13)
+        arm = rect(Pv, (sc - Pv) / np.linalg.norm(sc - Pv), 0.0, float(np.linalg.norm(sc - Pv)), 0.3)
+        parts += [sock, arm]
+        slots.append(rect(tip, d, L - 0.38, L, w))              # open on the viewer's side: the stone shows in it
+    lever = unary_union(parts).difference(unary_union(slots)).buffer(0.03, 8).buffer(-0.03, 8)
+    if lever.geom_type != "Polygon":
+        lever = max(lever.geoms, key=lambda g: g.area)
+    r2 = lambda p: [round(float(p[0]), 4), round(float(p[1]), 4)]
+    return {"wheel": [ex, ey, re_, ESC_TEETH], "pivot": list(PALLET_PIVOT), "balance": list(BALANCE[:2]),
+            "lever": [r2(p) for p in lever.exterior.coords[:-1]],
+            "lever_holes": [[r2(p) for p in h.coords[:-1]] for h in lever.interiors],
+            "stones": {k: [r2(p) for p in v] for k, v in stones.items()},
+            "impulse_pin_r": 0.48, "lift_deg": 7.0}
 
 
 def laplace(a, U, iters=400):

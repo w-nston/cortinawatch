@@ -46,7 +46,8 @@ Z_PLATE = -4.95        # baseplate surface
 Z_SINK = -4.45         # floor of the sinkings cut into the baseplate round the wheels (0.5 mm deep)
 Z_BRIDGE = -5.45       # bridge surfaces (0.5 mm proud of the plate)
 Z_WHEEL = -5.14        # visible gold wheels
-Z_ROTOR = -5.5         # mini-rotor underside; face at -5.8, cross relief to -5.85, sapphire at -5.9
+Z_PIT = 0.6            # the balance/escapement pit goes this much deeper than the sinkings
+Z_ROTOR = -5.15        # mini-rotor underside: it turns in a pit in the bridges, its face (-5.45) flush with them
 LUG_X = 11.0           # lug centre (20 mm between lugs)
 
 
@@ -537,6 +538,26 @@ def build_inside(M):
     # caseback sapphire
     lathe([(0, Z_BACK + 0.28), (R_WIN + 0.02, Z_BACK + 0.28), (R_WIN + 0.02, Z_BACK + 1.0), (0, Z_BACK + 1.0)], segs=192,
           name="caseback_glass", mat=M["glass"], close=True, smooth_angle=60 * DEG)
+    # the anniversary print, on the sapphire's inside face: "Cortina Watch / 50th Anniversary / Since 1972"
+    # in translucent white (blender/caseback_print.py, measured on the caseback photograph)
+    if os.path.exists(os.path.join(TEX, "caseback_print_5057G.png")):
+        pm = mat("Caseback print", (1, 1, 1), 0, 0.55)
+        nt = pm.node_tree
+        bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+        t = nt.nodes.new("ShaderNodeTexImage")
+        t.image = image("caseback_print_5057G.png")
+        t.interpolation = "Cubic"
+        nt.links.new(t.outputs["Color"], bsdf.inputs["Base Color"])
+        nt.links.new(t.outputs["Alpha"], bsdf.inputs["Alpha"])
+        if hasattr(pm, "surface_render_method"):
+            pm.surface_render_method = "BLENDED"
+        bm = bmesh.new()
+        bmesh.ops.create_circle(bm, cap_ends=True, segments=192, radius=R_WIN)
+        for f in bm.faces:
+            f.normal_flip()                    # faces the caseback side, where it is read
+        o = bm_to_obj(bm, "caseback_print", pm)
+        o.data.transform(Matrix.Translation((0, 0, Z_BACK + 1.0 + 0.004)))
+        planar_uv(o.data, 0, 0, 14.06, flip_u=True)   # the movement textures' photo-view frame
 
 
 # ------------------------------------------------------------------ calibre 240 (3D, from the caseback photo)
@@ -548,21 +569,22 @@ def _world_mesh(o):
 
 
 def _cotes_normal():
-    """Côtes de Genève for the rotor: soft bands 0.9 mm wide (in rotor UV space), as a normal map."""
-    name = "rotor_cotes_normal.png"
+    """Côtes de Genève for the rotor (rotor UV space, 14.8 mm square on the pivot): bands 2.57 mm wide,
+    one edge on the rotor's axis, each a shallow cylinder (±8°), as on the photographed rotor."""
+    name = "rotor_cotes_2p6_normal.png"
     path = os.path.join(TEX, name)
     if not os.path.exists(path):
         import numpy as np
         n = 1024
         u = (np.arange(n) + 0.5) / n
-        x = u * 2 * 7.4                                  # mm across the rotor's UV square
-        band = (x % 0.9) / 0.9
-        h = np.sin(band * math.pi) ** 0.6                 # rounded band, crisp valley
-        dh = np.gradient(h) * 2.2
+        x = u * 2 * 7.4 - 7.4                            # mm from the rotor's axis
+        band = (x / 2.57) % 1.0
+        dh = (1 - 2 * band) * 0.14                        # cylinder: the slope runs evenly across the band
         nx = -dh / np.sqrt(1 + dh * dh)
         nz = 1 / np.sqrt(1 + dh * dh)
         img = np.zeros((n, n, 4), np.float32)
-        img[..., 0] = (nx * 0.5 + 0.5)[None, :]
+        dither = np.random.default_rng(1143).uniform(-0.5, 0.5, (n, n)) / 255   # no 8-bit banding in the reflections
+        img[..., 0] = (nx * 0.5 + 0.5)[None, :] + dither
         img[..., 1] = 0.5
         img[..., 2] = (nz * 0.5 + 0.5)[None, :]
         img[..., 3] = 1
@@ -578,10 +600,12 @@ def _cotes_normal():
 def gear_outline(cx, cy, r_tip, n, kind="cycloid"):
     """Wheel outline with n teeth: rounded (ogival) watch-wheel teeth, or a ratchet's saw teeth."""
     pitch = TAU / n
-    depth = min(0.3, 0.55 * pitch * r_tip) if kind == "cycloid" else min(0.22, 0.4 * pitch * r_tip)
+    depth = min(0.3, 0.55 * pitch * r_tip) if kind == "cycloid" else min(0.28 if kind == "club" else 0.22, 0.4 * pitch * r_tip)
     r0 = r_tip - depth
     prof = ([(-0.5, r0), (-0.3, r0), (-0.22, r0 + depth * 0.55), (-0.13, r_tip), (0.13, r_tip), (0.22, r0 + depth * 0.55), (0.3, r0)]
-            if kind == "cycloid" else [(-0.5, r0), (0.38, r_tip), (0.42, r_tip - depth * 0.2), (0.5, r0)])
+            if kind == "cycloid" else
+            [(-0.5, r0), (0.05, r0 + depth * 0.15), (0.3, r_tip), (0.42, r_tip - depth * 0.15), (0.5, r0)] if kind == "club" else
+            [(-0.5, r0), (0.38, r_tip), (0.42, r_tip - depth * 0.2), (0.5, r0)])
     pts = []
     for i in range(n):
         for f, rr in (prof if kind == "cycloid" else prof[:-1]):   # a ratchet's last point is the next tooth's first
@@ -617,6 +641,11 @@ def _normal_mat(name, color, metal, rough, normal_img, strength):
     return m
 
 
+PART_NAMES = {"bridge_train": "105_barrel_bridge", "bridge_wheels": "110_train_bridge",
+              "bridge_centre": "1149_automatic_bridge", "balance_cock": "121_balance_cock",
+              "pallet_bridge": "125_pallet_bridge"}   # Patek Philippe's part numbers ("watch photos/240 movement.jpg")
+
+
 def build_movement(M):
     """The 5057G's own calibre 240, built with real finishing: rhodium-plated bridges with Côtes de
     Genève and polished chamfers (anglage), a perlaged baseplate with sinkings, gilt engravings,
@@ -639,11 +668,12 @@ def build_movement(M):
     gold_w = mat("Gold wheels polished", srgb(0xDDA866), 1, 0.08)
     gold_grain = _normal_mat("Gold wheels circular graining", srgb(0xD9A35E), 1, 0.24, "circular_graining_normal.png", 0.6)
     steel_snail = _normal_mat("Steel snailed", srgb(0xD4D6DA), 1, 0.18, "snailing_normal.png", 0.7)
-    glucydur = mat("Balance glucydur", srgb(0xD8AC72), 1, 0.1)
-    spring_m = mat("Hairspring Spiromax", srgb(0x5A6C9E), 1, 0.2)
+    glucydur = mat("Balance glucydur", srgb(0xF2C274), 1, 0.36)   # satin yellow: reads bright gold, as photographed
+    spring_m = mat("Hairspring Spiromax", srgb(0x8F98AE), 1, 0.25)
     slot_m = mat("Screw slot", srgb(0x0C0C0E), 0, 0.6)
     steel = mat("Steel polished", srgb(0xE2E3E6), 1, 0.08)
-    ruby = mat("Ruby jewel", srgb(0xA8164A), 0, 0.03, **{"Coat Weight": 1.0, "Transmission Weight": 0.35})
+    sink_m = mat("Countersink polished", srgb(0xE4E6EA), 1, 0.17)   # softer than mirror: reads as in the photo
+    ruby = mat("Ruby jewel", srgb(0x9C2C6E), 0, 0.03, **{"Coat Weight": 1.0, "Transmission Weight": 0.35})  # synthetic ruby
 
     def photo_faces(o, face_mat=1, other=0):
         for f in o.data.polygons:
@@ -652,39 +682,21 @@ def build_movement(M):
 
     # baseplate, with sinkings (0.5 mm) round the wheels; perlage on the plate and the sinking floors
     pockets = [W(pk["outer"]) for pk in data["pockets"]]
+    plate_pins = [arc(-x, y, r + 0.12, TAU, 0, 32) for x, y, r in data.get("pin_holes", [])
+                  if not any(_inside((-x, y), W(b)) for b in data["bridges"].values())
+                  and not any(_inside((-x, y), pk) for pk in pockets)]
+    pockets += plate_pins
     o = flat_plate(arc(0, 0, R_WIN, 0, TAU, 256), pockets, Z_SINK, Z_SINK - Z_PLATE, "movement_plate", [M["satin"], mv])
     photo_faces(o)
-    bm = bmesh.new()
-    bmesh.ops.create_circle(bm, cap_ends=True, segments=192, radius=R_WIN - 0.05)
-    for f in bm.faces:
-        f.normal_flip()
-    o = bm_to_obj(bm, "movement_sink_floor", mv)
-    o.data.transform(Matrix.Translation((0, 0, Z_SINK)))
+    # the sinkings' floor, with a deeper pit for the balance and escapement (escape wheel and pallet fork
+    # under the balance, hairspring over its arms)
+    pit = W(data["deep_pit"]) if data.get("deep_pit") else None
+    o = flat_plate(arc(0, 0, R_WIN - 0.05, 0, TAU, 192), [pit] if pit else [], Z_SINK + Z_PIT, Z_PIT, "movement_sink_floor", [mv, mv])
     planar_uv(o.data, 0, 0, H, flip_u=True)
-
-    # jewels: ruby, dome and oil sink, at the bottom of a polished countersink bored into its bridge
-    bridges = {k: W(v) for k, v in data["bridges"].items()}
-    jewels = []
-    for x, y, r in sorted(data["jewels"], key=lambda j: -j[2]):    # largest first; merge split detections
-        if any(math.hypot(-x - q[0][0], y - q[0][1]) < 0.6 + q[1] for q in jewels):
-            continue
-        rj = min(max(r * 0.8, 0.2), 0.55)
-        jewels.append(((-x, y), rj, rj + 0.3))
-    in_bridge = {}
-    for name, outline in bridges.items():
-        in_bridge[name] = [j for j in jewels
-                           if all(_inside((j[0][0] + j[2] * 1.15 * math.cos(a), j[0][1] + j[2] * 1.15 * math.sin(a)), outline)
-                                  for a in [k * TAU / 12 for k in range(12)])]
-
-    # bridges: visible face toward the caseback, polished chamfer round every edge, jewel holes
-    for name, outline in bridges.items():
-        holes = [arc(pt[0], pt[1], rs, TAU, 0, 40) for pt, rj, rs in in_bridge[name]]
-        o = flat_plate(outline, holes, Z_PLATE, Z_PLATE - Z_BRIDGE, name, [M["polish"], mv])
-        photo_faces(o)
-        bv = o.modifiers.new("anglage", "BEVEL")
-        bv.width, bv.segments, bv.limit_method, bv.angle_limit = 0.09, 2, "ANGLE", 40 * DEG
-        bv.material = 0
-        bv.harden_normals = True
+    if pit:
+        pit_m = mat("Pit floor (in shadow)", srgb(0x7E8186), 1, 0.42)   # deep under the balance: darker, as photographed
+        o = flat_plate(pit, [], Z_SINK + Z_PIT + 0.05, 0.05, "movement_pit_floor", [pit_m, pit_m])
+        planar_uv(o.data, 0, 0, H, flip_u=True)
 
     def face_viewer(o):  # open lathe surfaces: make every face look toward the caseback (-Z)
         for f in o.data.polygons:
@@ -692,13 +704,66 @@ def build_movement(M):
                 f.flip()
         o.data.update()
 
+    # jewels: ruby, dome and oil sink, at the bottom of a polished countersink bored into its bridge
+    bridges = {k: W(v) for k, v in data["bridges"].items()}
+    chatons = [((-x, y), r, kind) for x, y, r, kind in data.get("chatons", [])]
+    pin_holes = [((-x, y), r) for x, y, r in data.get("pin_holes", [])]
+    jewels = []
+    for x, y, r in sorted(data["jewels"], key=lambda j: -j[2]):    # largest first; merge split detections
+        if any(math.hypot(-x - q[0][0], y - q[0][1]) < 0.6 + q[1] for q in jewels):
+            continue
+        if any(math.hypot(-x - c[0][0], y - c[0][1]) < c[1] for c in chatons):
+            continue    # set in a gold chaton, built below
+        rj = min(max(r * 1.0, 0.24), 0.6)
+        jewels.append(((-x, y), rj, rj + 0.24))   # countersink: a narrow polished ring, as photographed
+    in_bridge = {}
+    for name, outline in bridges.items():
+        in_bridge[name] = [j for j in jewels
+                           if all(_inside((j[0][0] + j[2] * 1.15 * math.cos(a), j[0][1] + j[2] * 1.15 * math.sin(a)), outline)
+                                  for a in [k * TAU / 12 for k in range(12)])]
+
+    # bridges: visible face toward the caseback, polished chamfer round every edge, jewel holes
+    ring_in = lambda pt, r, outline: all(_inside((pt[0] + r * 1.15 * math.cos(a), pt[1] + r * 1.15 * math.sin(a)), outline)
+                                         for a in [k * TAU / 12 for k in range(12)])
+    Z_PB = Z_SINK + 0.03                     # pallet bridge 125: its face, under the balance
+    pj = ((-data["escapement"]["pivot"][0], data["escapement"]["pivot"][1]), 0.26, 0.48) if data.get("escapement") else None
+    for name, outline in bridges.items():
+        holes = [arc(pt[0], pt[1], rs, TAU, 0, 40) for pt, rj, rs in in_bridge[name]]
+        if name == "pallet_bridge":
+            holes += [arc(pj[0][0], pj[0][1], pj[2], TAU, 0, 40)] if pj else []
+            o = flat_plate(outline, holes, Z_SINK + 0.2, 0.17, PART_NAMES.get(name, name), [M["polish"], mv])
+            photo_faces(o)
+            bv = o.modifiers.new("anglage", "BEVEL")
+            bv.width, bv.segments, bv.limit_method, bv.angle_limit, bv.material = 0.06, 2, "ANGLE", 40 * DEG, 0
+            bv.harden_normals = True
+            continue
+        holes += [arc(pt[0], pt[1], r, TAU, 0, 48) for pt, r, _ in chatons if ring_in(pt, r, outline)]
+        holes += [arc(pt[0], pt[1], r + 0.12, TAU, 0, 32) for pt, r in pin_holes if ring_in(pt, r + 0.12, outline)]
+        o = flat_plate(outline, holes, Z_PLATE, Z_PLATE - Z_BRIDGE, PART_NAMES.get(name, name), [M["polish"], mv])
+        photo_faces(o)
+        bv = o.modifiers.new("anglage", "BEVEL")
+        bv.width, bv.segments, bv.limit_method, bv.angle_limit = 0.14, 3, "ANGLE", 40 * DEG   # polished anglage
+        bv.material = 0
+        bv.harden_normals = True
+
+    if pj:   # the pallet jewel, in its countersink in the pallet bridge's lobe
+        (px, py), rj, rs = pj
+        o = lathe([(rs, 0.0), (rj + 0.04, 0.12), (0.0, 0.13)], segs=48, name="125_pallet_jewel_sink", mat=sink_m, smooth_angle=60 * DEG)
+        o.matrix_basis = Matrix.Translation((px, py, Z_PB))
+        _world_mesh(o)
+        face_viewer(o)
+        o = lathe([(0.0, 0.07), (0.07, 0.05), (0.12, 0.04), (rj * 0.62, 0.045), (rj * 0.92, 0.09), (rj, 0.12)], segs=48,
+                  name="125_pallet_jewel", mat=ruby, smooth_angle=70 * DEG)
+        o.matrix_basis = Matrix.Translation((px, py, Z_PB))
+        _world_mesh(o)
+        face_viewer(o)
     set_jewels = {id(j) for js in in_bridge.values() for j in js}
     for i, j in enumerate(jewels):
         (px, py), rj, rs = j
         sunk = id(j) in set_jewels
         z0 = Z_BRIDGE if sunk else (Z_BRIDGE if any(_inside((px, py), b) for b in bridges.values()) else Z_PLATE) - 0.14
         # countersink: polished cone from the bridge face down to the jewel (z grows into the bridge)
-        o = lathe([(rs, 0.0), (rj + 0.04, 0.14), (0.0, 0.15)], segs=48, name=f"jewel_sink_{i + 1}", mat=M["polish"],
+        o = lathe([(rs, 0.0), (rj + 0.04, 0.14), (0.0, 0.15)], segs=48, name=f"jewel_sink_{i + 1}", mat=sink_m,
                   smooth_angle=60 * DEG)
         o.matrix_basis = Matrix.Translation((px, py, z0))
         _world_mesh(o)
@@ -710,8 +775,62 @@ def build_movement(M):
         _world_mesh(o)
         face_viewer(o)
 
+    # gold chatons: a polished gold ring pressed into the bridge, holding a ruby (the balance jewel
+    # under its shock spring) or the barrel arbor's polished steel pivot
+    chaton_gold = mat("Chaton gold polished", srgb(0xE6AC74), 1, 0.07)
+    for i, ((px, py), ro, kind) in enumerate(chatons):
+        z0 = Z_BRIDGE if any(ring_in((px, py), ro, b) for b in bridges.values()) else Z_PLATE
+        ri = ro * 0.62
+        o = lathe([(ri, 0.3), (ri, 0.03), (ri + 0.04, -0.005), (ro * 0.86, -0.03), (ro - 0.03, -0.015), (ro, 0.02), (ro, 0.3)],
+                  segs=64, name=f"chaton_{i + 1}", mat=chaton_gold, close=True, smooth_angle=50 * DEG)
+        o.matrix_basis = Matrix.Translation((px, py, z0))
+        if kind == "ruby":
+            o = lathe([(0.0, 0.08), (0.07, 0.055), (0.13, 0.045), (ri * 0.62, 0.05), (ri * 0.92, 0.08), (ri, 0.1)], segs=48,
+                      name=f"chaton_{i + 1}_jewel", mat=ruby, smooth_angle=70 * DEG)
+            o.matrix_basis = Matrix.Translation((px, py, z0))
+            _world_mesh(o)
+            face_viewer(o)
+            if ro < 0.7:   # the balance jewel: a shock spring's two arms over it
+                for side in (0, 1):
+                    a0 = math.radians(25 + 180 * side)
+                    band = arc(px, py, ri * 0.98, a0, a0 + math.radians(130), 24) + arc(px, py, ri * 0.72, a0 + math.radians(130), a0, 24)
+                    flat_plate(band, [], z0 + 0.02, 0.04, f"chaton_{i + 1}_spring_{side + 1}", [steel, steel])
+        else:
+            o = lathe([(0.0, 0.06), (0.07, 0.06), (0.09, 0.03), (ri * 0.8, 0.02), (ri, 0.06)], segs=40,
+                      name=f"chaton_{i + 1}_pivot", mat=steel, smooth_angle=60 * DEG)
+            o.matrix_basis = Matrix.Translation((px, py, z0))
+            _world_mesh(o)
+            face_viewer(o)
+
+    # steady-pin and tool holes: polished countersinks bored into the bridges (or the plate)
+    for i, ((px, py), r) in enumerate(pin_holes):
+        on_bridge = any(ring_in((px, py), r + 0.12, b) for b in bridges.values())
+        z0, depth = (Z_BRIDGE, 0.48) if on_bridge else (Z_PLATE, 0.4)
+        o = lathe([(r + 0.12, 0.0), (r + 0.02, 0.1), (r, 0.14), (r, depth)], segs=40, name=f"pin_hole_{i + 1}",
+                  mat=sink_m, smooth_angle=60 * DEG)
+        o.matrix_basis = Matrix.Translation((px, py, z0))
+        _world_mesh(o)
+        face_viewer(o)
+        o = lathe([(0.0, depth), (r, depth)], segs=40, name=f"pin_hole_{i + 1}_bottom", mat=slot_m)
+        o.matrix_basis = Matrix.Translation((px, py, z0))
+        _world_mesh(o)
+        face_viewer(o)
+
+    # the mainspring barrel 415 on the barrel bridge's bushing: a steel drum, its toothed rim gilt; only a
+    # crescent of it shows past the barrel bridge's edge (beside "ADJUSTED"), as photographed
+    if data.get("barrel"):
+        bx_, by_, br_, bn_ = -data["barrel"][0], data["barrel"][1], data["barrel"][2], data["barrel"][3]
+        o = flat_plate(gear_outline(bx_, by_, br_, bn_), [arc(bx_, by_, br_ - 0.36, TAU, 0, 192)], Z_SINK - 0.02, 0.28,
+                       "415_barrel", [gold_w, gold_grain])
+        for f in o.data.polygons:
+            f.material_index = 1 if f.normal.z < -0.9 else 0
+        planar_uv(o.data, bx_, by_, br_)
+        drum_m = mat("Barrel drum steel", srgb(0xC9CCD1), 1, 0.3)
+        o = flat_plate(arc(bx_, by_, br_ - 0.35, 0, TAU, 192), [], Z_SINK - 0.02, 0.26, "415_barrel_drum", [drum_m, drum_m])
     # gold train wheels: real teeth, spokes, polished hub; each on its own level so meshing teeth clear
-    gear_z = {"centre_wheel": Z_SINK - 0.02, "third_wheel": Z_SINK - 0.14, "fourth_wheel": Z_SINK - 0.14}
+    # (the centre wheel rides over the barrel, just under the plate's face)
+    gear_z = {"200_centre_wheel": Z_SINK - 0.34, "1481_reduction_wheel": Z_SINK - 0.14, "210_third_wheel": Z_SINK - 0.14,
+              "220_fourth_wheel": Z_SINK - 0.3}
     for name, (x, y, r, teeth, spokes) in data["gold_gears"].items():
         cx, cy = -x, y
         rim_in = r - 0.3 - max(0.18, r * 0.07)
@@ -726,33 +845,79 @@ def build_movement(M):
         o.matrix_basis = Matrix.Translation((cx, cy, gear_z[name] - 0.12))
         o = lathe([(0, -0.32), (0.17, -0.3), (0.17, 0.0), (0, 0.0)], segs=24, name=f"{name}_arbor", mat=steel)
         o.matrix_basis = Matrix.Translation((cx, cy, gear_z[name] - 0.12))
+        if name == "220_fourth_wheel":   # its arbor runs on through the dial: the small seconds hand
+            o = lathe([(0.12, 0.0), (0.12, 0.6), (0.0, 0.6)], segs=16, name="220_fourth_wheel_seconds_arbor", mat=steel)
+            o.matrix_basis = Matrix.Translation((cx, cy, gear_z[name]))
 
     # steel wheels of the automatic winding: snailed, toothed; the large one is the ratchet
     for i, (x, y, r) in enumerate(data["steel_wheels"]):
         big = r > 3
         top = Z_SINK - (0.27 if big else 0.38)
+        wname = "1497_winding_wheel" if big else "1480_wheel"
         o = flat_plate(gear_outline(-x, y, r, 100 if big else 40, "ratchet" if big else "cycloid"),
-                       [arc(-x, y, 0.42, TAU, 0, 24)], top, 0.1, f"steel_wheel_{i + 1}", [steel, steel_snail])
+                       [arc(-x, y, 0.42, TAU, 0, 24)], top, 0.1, wname, [steel, steel_snail])
         for f in o.data.polygons:
             f.material_index = 1 if f.normal.z < -0.9 else 0
         planar_uv(o.data, -x, y, r)
         o = lathe([(0.42, -0.08), (0.75, -0.08), (0.85, -0.03), (0.85, 0.0), (0.42, 0.0)], segs=40,
-                  name=f"steel_wheel_{i + 1}_collar", mat=steel, close=True)
+                  name=f"{wname}_collar", mat=steel, close=True)
         o.matrix_basis = Matrix.Translation((-x, y, top - 0.1))
 
+    # ---- escapement, in the balance's pit (as photographed, with the parts diagram): the escape wheel 702
+    # under the train bridge's gold chaton (its jewel), the pallet lever 710 pivoting in the pallet bridge's
+    # jewel, its exit stone flat in a "⊐" socket and its long entry stone upright, the fork reaching to the
+    # balance's impulse pin. Stacked under the balance: escape wheel and stones, lever, pallet bridge 125.
+    es = data["escapement"]
+    ex_, ey_, er_, nt_ = -es["wheel"][0], es["wheel"][1], es["wheel"][2], es["wheel"][3]
+    pvx, pvy = -es["pivot"][0], es["pivot"][1]
+
+    def pivoted(name, x, y):
+        e = bpy.data.objects.new(name, None)
+        e.empty_display_size = 1
+        C.objects.link(e)
+        e.location = (x, y, 0.0)
+        return e
+
+    def onto(o, e):   # a part built in watch space, re-hung on its pivot
+        o.data.transform(Matrix.Translation((-e.location.x, -e.location.y, 0.0)))
+        o.parent = e
+        return o
+
+    esc = pivoted("escape_wheel", ex_, ey_)
+    esc_m = mat("Escape wheel steel", srgb(0x7A7E86), 1, 0.28)   # deep in the pit it reads dark, as photographed
+    o = flat_plate(gear_outline(ex_, ey_, er_, nt_, "club"), spoke_windows(ex_, ey_, 0.36, er_ - 0.55, 5, 0.14, 0.2),
+                   Z_SINK + 0.38, 0.08, "702_escape_wheel", [esc_m, esc_m])
+    onto(o, esc)
+    o = lathe([(0, -0.5), (0.11, -0.5), (0.11, 0.3), (0.28, 0.32), (0.28, 0.45), (0, 0.45)], segs=24,
+              name="702_escape_pinion", mat=steel, close=True)                       # arbor up to its jewel, pinion below
+    o.matrix_basis = Matrix.Translation((0, 0, Z_SINK))
+    o.parent = esc
+    lev = pivoted("pallet_lever", pvx, pvy)
+    o = flat_plate(W(es["lever"]), [W(h) for h in es.get("lever_holes", [])], Z_SINK + 0.30, 0.09, "710_pallet_lever",
+                   [steel, steel])
+    onto(o, lev)
+    for k, st in es["stones"].items():
+        onto(flat_plate(W(st), [], Z_SINK + 0.38, 0.12, f"710_pallet_stone_{k}", [ruby, ruby]), lev)
+    o = lathe([(0, 0.03), (0.1, 0.03), (0.1, 0.55), (0, 0.55)], segs=16, name="710_pallet_arbor", mat=steel, close=True)
+    o.matrix_basis = Matrix.Translation((0, 0, Z_SINK))
+    o.parent = lev
+
     # screws: polished steel heads with their slots
-    level = lambda pt: Z_BRIDGE if any(_inside(pt, b) for b in bridges.values()) else Z_PLATE
+    def level(pt):
+        if "pallet_bridge" in bridges and _inside(pt, bridges["pallet_bridge"]):
+            return Z_PB, 0.05
+        return (Z_BRIDGE if any(_inside(pt, b) for n_, b in bridges.items() if n_ != "pallet_bridge") else Z_PLATE), 0.13
     for i, (x, y, r) in enumerate(data["screws"]):
         pt = (-x, y)
-        z0 = level(pt)
-        o = lathe([(0, -0.13), (r * 0.7, -0.1), (r, -0.03), (r, 0.0), (0, 0.0)], segs=40, name=f"screw_{i + 1}",
+        z0, hh = level(pt)
+        o = lathe([(0, -hh), (r * 0.7, -hh * 0.77), (r, -hh * 0.23), (r, 0.0), (0, 0.0)], segs=40, name=f"screw_{i + 1}",
                   mat=steel, smooth_angle=60 * DEG)
         o.matrix_basis = Matrix.Translation((pt[0], pt[1], z0))
         a = 0.6 + i * 1.7
         ca, sa = math.cos(a), math.sin(a)
         slot = [(pt[0] + ca * u - sa * v, pt[1] + sa * u + ca * v) for u, v in
                 ((-r * 0.92, -0.06), (r * 0.92, -0.06), (r * 0.92, 0.06), (-r * 0.92, 0.06))]
-        flat_plate(slot, [], z0 - 0.09, 0.05, f"screw_{i + 1}_slot", [slot_m, slot_m])
+        flat_plate(slot, [], z0 - hh * 0.69, hh * 0.38, f"screw_{i + 1}_slot", [slot_m, slot_m])
 
     # ---- the balance: Gyromax-style glucydur wheel under its cock, swinging on its hairspring
     bx, by, br = -data["balance"][0], data["balance"][1], data["balance"][2]
@@ -760,25 +925,63 @@ def build_movement(M):
     bal.empty_display_size = 2
     C.objects.link(bal)
     bal.location = (bx, by, Z_SINK)
-    r_in = br - 0.32
+    # Patek's Gyromax: a thin glucydur rim on four tapered arms; at each arm's end a slotted gold
+    # weight (masselotte) turning on a polished pin, the rate set by turning them (no regulator)
+    r_in = br - 0.24
     parts = []
-    parts.append(flat_plate(arc(0, 0, br, 0, TAU, 128), [arc(0, 0, r_in, TAU, 0, 128)], -0.05, 0.2, "balance_rim", [glucydur, glucydur]))
-    parts.append(flat_plate([(-r_in - 0.05, -0.16), (r_in + 0.05, -0.16), (r_in + 0.05, 0.16), (-r_in - 0.05, 0.16)], [],
-                            -0.08, 0.13, "balance_arm", [glucydur, glucydur]))
-    parts.append(flat_plate(arc(0, 0, 0.5, 0, TAU, 40), [], -0.08, 0.14, "balance_hub", [glucydur, glucydur]))
-    rm = (br + r_in) / 2
-    for k in range(4):  # Gyromax inertia blocks on the rim
-        a = math.radians(45 + 90 * k)
+    o = flat_plate(arc(0, 0, br, 0, TAU, 192), [arc(0, 0, r_in, TAU, 0, 192)], -0.02, 0.27, "balance_rim", [glucydur, glucydur])
+    bv = o.modifiers.new("chamfer", "BEVEL")
+    bv.width, bv.segments, bv.limit_method, bv.angle_limit, bv.harden_normals = 0.03, 2, "ANGLE", 40 * DEG, True
+    parts.append(o)
+    phase = math.radians(180 - data.get("balance_arms_deg", 81.0))   # photo view -> watch frame
+    # measured on the photo: arms ~0.5 mm wide, weights 0.64 mm across centred 3.15 mm out, their
+    # slots set different ways (photo-view directions, one per arm)
+    rw, wr = 3.05, 0.33
+    weight_m = mat("Balance weights gold", srgb(0xFADA9C), 1, 0.18)
+    slot_dirs = data.get("balance_weight_slots_deg", [0.0, 10.0, 330.0, 45.0])
+    for k in range(4):
+        a = phase + k * TAU / 4
         ca, sa = math.cos(a), math.sin(a)
-        blk = [(rm * ca + ca * u - sa * v, rm * sa + sa * u + ca * v) for u, v in ((-0.2, -0.32), (0.2, -0.32), (0.2, 0.32), (-0.2, 0.32))]
-        parts.append(flat_plate(blk, [], -0.25, 0.09, f"balance_block_{k + 1}", [gold_w, gold_w]))
+        rot = lambda u, v: (ca * u - sa * v, sa * u + ca * v)
+        arm = [(0.35, -0.18), (2.2, -0.22), (rw - 0.25, -0.29), (r_in + 0.06, -0.3),
+               (r_in + 0.06, 0.3), (rw - 0.25, 0.29), (2.2, 0.22), (0.35, 0.18)]
+        parts.append(flat_plate([rot(u, v) for u, v in arm], [], -0.06, 0.15, f"balance_arm_{k + 1}", [glucydur, glucydur]))
+        # the weight, as photographed: a slotted gold ring (a "G") round a bright centre pin, dark between
+        wx, wy = rw * ca, rw * sa
+        so = math.radians(180 - slot_dirs[k % len(slot_dirs)])     # photo view -> watch frame
+        ri_w = 0.17
+        do, di = math.asin(0.065 / wr), math.asin(0.065 / ri_w)
+        cshape = arc(wx, wy, wr, so + do, so + TAU - do, 48) + arc(wx, wy, ri_w, so + TAU - di, so + di, 20)
+        o = flat_plate(cshape, [], -0.05, 0.26, f"balance_weight_{k + 1}", [weight_m, weight_m])
+        bv = o.modifiers.new("round", "BEVEL")   # rounded edges catch the light, as on the photo
+        bv.width, bv.segments, bv.limit_method, bv.angle_limit, bv.harden_normals = 0.06, 3, "ANGLE", 40 * DEG, True
+        parts.append(o)
+        cs_, sn_ = math.cos(so), math.sin(so)    # the slot reads dark, as on the photo: a shadowed floor in it
+        slot = arc(wx, wy, ri_w + 0.005, so + di, so + TAU - di, 20) + \
+            [(wx + cs_ * (wr - 0.02) + sn_ * 0.07, wy + sn_ * (wr - 0.02) - cs_ * 0.07),
+             (wx + cs_ * (wr - 0.02) - sn_ * 0.07, wy + sn_ * (wr - 0.02) + cs_ * 0.07)]
+        parts.append(flat_plate(slot, [], -0.212, 0.006, f"balance_weight_{k + 1}_slot", [slot_m, slot_m]))
+        o = lathe([(0, -0.33), (0.06, -0.325), (0.09, -0.3), (0.09, 0.0), (0, 0.0)], segs=24,
+                  name=f"balance_weight_{k + 1}_pin", mat=weight_m, smooth_angle=60 * DEG)   # bright domed centre
+        o.matrix_basis = Matrix.Translation((wx, wy, 0.0))
+        parts.append(o)
+    parts.append(flat_plate(arc(0, 0, 0.5, 0, TAU, 40), [], -0.08, 0.14, "balance_hub", [glucydur, glucydur]))
+    # the double roller under the hub, its ruby impulse pin reaching to the pallet fork
+    o = lathe([(0.12, 0.2), (0.55, 0.2), (0.6, 0.17), (0.6, 0.06), (0.12, 0.06)], segs=40, name="balance_roller",
+              mat=steel, close=True, smooth_angle=40 * DEG)
+    parts.append(o)
+    ux0, uy0 = (pvx - bx), (pvy - by)
+    ul = math.hypot(ux0, uy0)
+    o = lathe([(0, 0.12), (0.06, 0.12), (0.06, 0.3), (0, 0.3)], segs=16, name="balance_impulse_pin", mat=ruby, close=True)
+    o.matrix_basis = Matrix.Translation((ux0 / ul * 0.48, uy0 / ul * 0.48, 0.0))
+    parts.append(o)
     o = lathe([(0, -0.62), (0.12, -0.6), (0.12, -0.36), (0.32, -0.34), (0.32, -0.1), (0, -0.1)], segs=32,
               name="balance_staff", mat=steel)
     parts.append(o)
     for o in parts:
         o.parent = bal
     # hairspring: a flat spiral, inner end on the collet (turns with the balance), outer end at the stud
-    turns, r0s, r1s, wid, z_lo, z_hi = 12, 0.5, 2.45, 0.05, -0.27, -0.35
+    turns, r0s, r1s, wid, z_lo, z_hi = 12, 0.45, 2.2, 0.05, -0.3, -0.37   # outer end at the stud, 2.2 mm out
     nseg = turns * 48
     bm = bmesh.new()
     rings = []
@@ -799,6 +1002,13 @@ def build_movement(M):
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     hs = bm_to_obj(bm, "hairspring", spring_m, smooth_angle=50 * DEG)
     hs.location = (bx, by, Z_SINK)
+    if data.get("hairspring_stud"):   # the black stud holding the hairspring's outer end, under the cock's edge
+        sx_, sy_ = -data["hairspring_stud"][0], data["hairspring_stud"][1]
+        ta = math.atan2(sy_ - by, sx_ - bx) + math.pi / 2
+        ct_, st_ = math.cos(ta), math.sin(ta)
+        blk = [(sx_ + ct_ * u - st_ * v, sy_ + st_ * u + ct_ * v) for u, v in ((-0.3, -0.17), (0.3, -0.17), (0.3, 0.17), (-0.3, 0.17))]
+        stud_m = mat("Stud blackened steel", srgb(0x1C1D20), 1, 0.3)
+        flat_plate(blk, [], Z_SINK - 0.34, 0.16, "hairspring_stud", [stud_m, stud_m])
     # shape keys every 30°: the coils wind by A·(1 - t) (t: 0 at the collet, 1 at the stud)
     hs.shape_key_add(name="Basis", from_mix=False)
     fr = [min(1.0, i // 4 / nseg) for i in range(len(hs.data.vertices))]
@@ -821,7 +1031,7 @@ def build_movement(M):
     C.objects.link(rotor)
     rotor.location = (pv[0], pv[1], Z_ROTOR)
     _cotes_normal()  # make sure the stripe map exists before the material loads it
-    g22 = tex_mat("Rotor 22K gold", "rotor_cotes_normal.png", rough=0.32, metal=1.0, aniso=0.5)
+    g22 = tex_mat("Rotor 22K gold", _cotes_normal().name, rough=0.3, metal=1.0, aniso=0.0)
     nt = g22.node_tree
     b = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
     t = next(n for n in nt.nodes if n.type == "TEX_IMAGE")
@@ -829,31 +1039,67 @@ def build_movement(M):
     for l in list(t.outputs["Color"].links):
         nt.links.remove(l)
     nm = nt.nodes.new("ShaderNodeNormalMap")
-    nm.inputs["Strength"].default_value = 0.35
+    nm.inputs["Strength"].default_value = 1.0
     nt.links.new(t.outputs["Color"], nm.inputs["Color"])
     nt.links.new(nm.outputs["Normal"], b.inputs["Normal"])
-    b.inputs["Base Color"].default_value = (*srgb(0xE3B27C), 1)
+    b.inputs["Base Color"].default_value = (*srgb(0xF0CC8E), 1)
+    b.inputs["Roughness"].default_value = 0.3
     gold_pol = mat("Rotor gold polished", srgb(0xE8B985), 1, 0.06)
-    sector = arc(0, 0, rr, math.pi, TAU, 96) + [(rr, 0.0), (1.3, 0.0)] + arc(0, 0, 1.3, 0, -math.pi, 24)[1:] + [(-1.3, 0.0)]
-    cross = [(x, y - 3.4) for x, y in calatrava_cross(2.3)]   # engraved into the sector
+    # a half-disc with a small round notch for the hub; the cross engraved on its axis, 3.3 mm out
+    sector = arc(0, 0, rr, math.pi, TAU, 128) + [(rr, 0.0), (0.82, 0.0)] + arc(0, 0, 0.82, 0, -math.pi, 24)[1:] + [(-0.82, 0.0)]
+    cross = [(x, y - 3.3) for x, y in calatrava_cross(2.1)]
     ENGRAVE = 0.12
     # top layer, pierced by the cross; its visible face is the striped gold
-    o = flat_plate(sector, [cross[::-1]], -0.3 + ENGRAVE, ENGRAVE, "rotor_sector", [gold_pol, g22])
+    holes = [arc(-sx_ - pv[0], sy_ - pv[1], 0.6, TAU, 0, 32) for sx_, sy_ in data.get("rotor_screws", [])]
+    o = flat_plate(sector, [cross[::-1]] + holes, -0.3 + ENGRAVE, ENGRAVE, "1143_rotor", [gold_pol, g22])
     for f in o.data.polygons:
         f.material_index = 1 if f.normal.z < -0.9 else 0
     planar_uv(o.data, 0, 0, 7.4)
     bv = o.modifiers.new("anglage", "BEVEL")
-    bv.width, bv.segments, bv.limit_method, bv.angle_limit, bv.material = 0.04, 2, "ANGLE", 40 * DEG, 0
+    bv.width, bv.segments, bv.limit_method, bv.angle_limit, bv.material = 0.09, 3, "ANGLE", 40 * DEG, 0
+    bv.harden_normals = True     # flat faces stay flat: no shading seams across the big face
     o.parent = rotor
     # body under it: its exposed face inside the cross is the engraving's matte floor
-    engraved = mat("Rotor gold engraved", srgb(0xC9945E), 1, 0.55)
-    o = flat_plate(sector, [], 0.0, 0.3 - ENGRAVE, "rotor_body", [gold_pol, engraved])
+    engraved = mat("Rotor gold engraved", srgb(0xF8DCA8), 1, 0.3)   # the cross's cut: bright satin gold
+    o = flat_plate(sector, holes, 0.0, 0.3 - ENGRAVE, "1143_rotor_body", [gold_pol, engraved])
     for f in o.data.polygons:
         f.material_index = 1 if f.normal.z < -0.9 else 0
     o.parent = rotor
-    o = lathe([(0, -0.36), (0.6, -0.36), (1.0, -0.33), (1.15, -0.28), (1.15, 0.0), (0, 0.0)], segs=48,
+    o = lathe([(0, -0.34), (0.6, -0.34), (0.74, -0.31), (0.78, -0.26), (0.78, 0.0), (0, 0.0)], segs=48,
               name="rotor_hub", mat=steel)
     o.parent = rotor
+    o = lathe([(0, -0.46), (0.3, -0.45), (0.42, -0.39), (0.44, -0.34), (0, -0.34)], segs=32, name="51143_rotor_screw",
+              mat=steel, smooth_angle=60 * DEG)   # the rotor's central screw
+    o.parent = rotor
+    # its two slotted screws, set in countersunk holes near the straight edge (they turn with it)
+    for j, (sx_, sy_) in enumerate(data.get("rotor_screws", [])):
+        hx, hy = -sx_ - pv[0], sy_ - pv[1]
+        o = lathe([(0, -0.33), (0.4, -0.325), (0.52, -0.3), (0.54, -0.27), (0.54, 0.0), (0, 0.0)], segs=40,
+                  name=f"1143_rotor_screw_{j + 1}", mat=steel, smooth_angle=60 * DEG)
+        o.matrix_basis = Matrix.Translation((hx, hy, 0.0))
+        o.parent = rotor
+        aa = math.radians(28 + 75 * j)
+        ca, sa = math.cos(aa), math.sin(aa)
+        sl = [(hx + ca * u - sa * v, hy + sa * u + ca * v) for u, v in ((-0.48, -0.05), (0.48, -0.05), (0.48, 0.05), (-0.48, 0.05))]
+        o = flat_plate(sl, [], -0.3, 0.045, f"1143_rotor_screw_{j + 1}_slot", [slot_m, slot_m])
+        o.parent = rotor
+    sl = [(u, v) for u, v in ((-0.4, -0.05), (0.4, -0.05), (0.4, 0.05), (-0.4, 0.05))]
+    o = flat_plate(sl, [], -0.43, 0.04, "51143_rotor_screw_slot", [slot_m, slot_m])
+    o.parent = rotor
+    # its ball bearing, fixed in the plate: a dark outer ring with four notches round a satin race,
+    # seen beside the rotor's straight edge
+    bearing_dark = mat("Bearing ring", srgb(0x2E3034), 1, 0.22)
+    o = lathe([(1.42, 0.3), (1.42, 0.0), (1.6, 0.0), (1.6, 0.3)], segs=96, name="1143_bearing_ring", mat=bearing_dark,
+              close=True, smooth_angle=40 * DEG)
+    o.matrix_basis = Matrix.Translation((pv[0], pv[1], Z_ROTOR + 0.03))
+    o = lathe([(0.8, 0.3), (0.8, 0.08), (1.42, 0.08), (1.42, 0.3)], segs=96, name="1143_bearing_race",
+              mat=M["satin"], close=True, smooth_angle=40 * DEG)
+    o.matrix_basis = Matrix.Translation((pv[0], pv[1], Z_ROTOR + 0.03))
+    for k in range(4):
+        a = math.radians(30 + 90 * k)
+        ca, sa = math.cos(a), math.sin(a)
+        nb = [(pv[0] + ca * u - sa * v, pv[1] + sa * u + ca * v) for u, v in ((1.38, -0.07), (1.64, -0.07), (1.64, 0.07), (1.38, 0.07))]
+        flat_plate(nb, [], Z_ROTOR + 0.33, 0.31, f"1143_bearing_notch_{k + 1}", [M["satin"], M["satin"]])
     # it turns: one revolution every 8 s, looping (baked into the GLB as an animation clip)
     sc = bpy.context.scene
     sc.render.fps = 60
@@ -903,6 +1149,37 @@ def build_movement(M):
             sk.value = wv
             sk.keyframe_insert("value", frame=f)
     bal.animation_data.action.name = "balance_swing"
+    # each beat (the balance through its centre, every 10 frames at 6 beats/s) the lever flips across and
+    # the escape wheel steps half a tooth; 48 beats in the 8 s loop: 432° = 6 turns of its 5 spokes' symmetry
+    lift = math.radians(es.get("lift_deg", 7.0))
+    for o_, nm in ((lev, "pallet_lever_flip"), (esc, "escape_wheel_step")):
+        for a_ in [a_ for a_ in bpy.data.actions if a_.name.startswith(nm)]:
+            bpy.data.actions.remove(a_)
+        o_.animation_data_clear()
+        o_.rotation_mode = "XYZ"
+    half = TAU / nt_ / 2
+    for k in range(49):
+        f0 = 1 + 10 * k
+        s_ = 1 if k % 2 == 0 else -1
+        for f, v in ((f0, 0.0), (f0 + 1, s_ * lift), (f0 + 9, s_ * lift)):
+            if f <= 481:
+                lev.rotation_euler.z = v
+                lev.keyframe_insert("rotation_euler", index=2, frame=f)
+        for f, v in ((f0, -half * (k + 0.5)), (f0 + 1, -half * (k + 1)), (f0 + 9, -half * (k + 1))):
+            if f <= 481:
+                esc.rotation_euler.z = v
+                esc.keyframe_insert("rotation_euler", index=2, frame=f)
+    for o_, nm in ((lev, "pallet_lever_flip"), (esc, "escape_wheel_step")):
+        act_ = o_.animation_data.action
+        act_.name = nm
+        try:
+            fcs_ = list(act_.fcurves)
+        except AttributeError:
+            fcs_ = [fc for layer in act_.layers for strip in layer.strips for bag in strip.channelbags for fc in bag.fcurves]
+        for fc in fcs_:
+            for kp in fc.keyframe_points:
+                kp.interpolation = "LINEAR"
+        o_.rotation_euler.z = 0.0
     hs.data.shape_keys.animation_data.action.name = "hairspring_breathe"
     for owner in (bal.animation_data.action, hs.data.shape_keys.animation_data.action):
         try:

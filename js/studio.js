@@ -43,6 +43,9 @@ export function studioEnvironment(renderer, { warm = false } = {}) {
   box(5, 30, [-25, 4, -22], 4.5, cool);     // left strip behind
   box(5, 30, [25, 8, -18], 3.5);            // right strip behind
   box(22, 6, [0, -10, -30], 1.1, fill);     // low back fill
+  // light tent behind the viewer of the caseback: face-on metal (plates, rotor, balance) reflects a soft
+  // white, as in the retail photographs; small enough that the Côtes de Genève still cross its edges
+  box(26, 22, [0, 2, -46], 0.85, cool);
   // broad low softboxes either side, front and back: polished case, bezel and lugs pick these up
   box(34, 16, [-30, -12, 26], 1.5, fill);
   box(34, 16, [30, -14, 22], 1.1);

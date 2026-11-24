@@ -15,6 +15,7 @@
 // movement seated with its dial side at z = 0 and its bridges toward -Z.
 import * as THREE from 'three';
 import * as G from './lib/geo.js';
+import { RotorPhysics } from './rotor_physics.js';
 
 const { TAU, DEG, polar, dist } = G;
 
@@ -259,6 +260,7 @@ export function buildCal240({ photoUrl = new URL('../assets/cal240-back.webp', i
     for (const p of parts) p.object.position.z = p.z + p.L * GAP * e;
   }
 
+  let rotorPhys = null, lastT = 0;
   function update(t) {
     // going train, stepping with each beat (3 Hz = 6 beats/s)
     const beats = t * 6;
@@ -279,8 +281,14 @@ export function buildCal240({ photoUrl = new URL('../assets/cal240-back.webp', i
       pts.push([Math.cos(a) * r, Math.sin(a) * r, 0]);
     }
     G.updateRibbon(S_.hs.geo, pts, 0.09);
-    // mini-rotor: simulated wrist motion
-    S_.rotor.rotation.z = 0.9 * Math.sin(t * 0.6) + 0.5 * Math.sin(t * 1.7 + 1);
+    // mini-rotor: swings with the watch's own motion (gravity as it tilts, its turns, its jolts)
+    let top = S_.rotor;
+    while (top.parent) top = top.parent;
+    if (top.isScene) {                         // once it is in the scene, so "down" is known
+      if (!rotorPhys) { rotorPhys = new RotorPhysics(S_.rotor); rotorPhys.settle(); }
+      else rotorPhys.update(t - lastT);
+      lastT = t;
+    }
   }
   update(0);
 

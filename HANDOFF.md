@@ -62,19 +62,66 @@ and `hairspring_breathe` (morph weights: the coils wind and unwind with the bala
     stars in relief) under the measured scalloped window. Faceted leaf hands sized from the photo and posed as
     photographed (`POSE`); sub-dial pivots fitted to the printed scales (power reserve −6.273, 6.279; date
     −3.529, −6.128; seconds 7.369, −6.272). `blender/dial_features.py` → `blender/dial_features.json`.
-  - Movement: the 5057G's own cal. 240 with real finishing. Layout from the caseback photo
-    (`blender/movement_from_photo.py` → `blender/movement.json`: bridge outlines, jewels, screws, the train,
+  - Movement: the 5057G's own cal. 240 with real finishing. Parts are named with Patek Philippe's numbers
+    from the Calibre 240 parts diagram (105 barrel bridge, 110 train bridge, 1149 automatic bridge, 121
+    balance cock, 125 pallet bridge, 1143 rotor + 51143 screw, 1481 reduction wheel, 1480 and 1497 steel
+    wheels + 51497 screws seen through the rotor's holes, 200/1 centre wheel, 220 fourth wheel, 702 club-tooth
+    escape wheel, 710 pallet fork with its two pallet stones, 415 barrel, 210 third and 220 fourth wheels). Bridge outlines are traced on the photograph by
+    seeded watershed (`blender/trace_movement.py` → `blender/movement_parts.json`); screws found by circle
+    detection and checked by eye. `refine_bridge()` in `movement_from_photo.py` then adds what the tracer cannot
+    see (shapely): the barrel bridge's curved cutout at 9 o'clock beside "SWISS" (a round bite through the edge,
+    sunk on into the plate as a shadowed recess), every bridge running on to the window where the photo blurs,
+    the balance cock's clean round head and its arm on under the rotor to the rim (as in the parts diagram),
+    the pallet bridge 125 (the crescent with two small screws) kept clear of the head, and a pit of r 7.35 round
+    the rotor's pivot that no bridge enters: the rotor turns in it, its face flush with the bridges.
+    Details read on 1 mm-gridded close-ups: gold chatons (barrel arbor bushing with its steel pivot, the train
+    bridge's jewel, the balance jewel under its shock spring), polished steady-pin holes, a missed ruby, the
+    cock head's two small screws. Layout from the caseback photo
+    (`blender/movement_from_photo.py` → `blender/movement.json`: bridges, jewels, screws, the train,
     sinkings); finishes from `blender/movement_finish.py` (`textures/movement_finish_*`, `circular_graining_normal`,
-    `snailing_normal`): rhodium bridges with Côtes de Genève and polished chamfers (anglage), a perlaged baseplate
+    `snailing_normal`): rhodium bridges with Côtes de Genève as measured on the photo (straight bands 2.6 mm wide,
+    edges aligned across all bridges at photo-view x = 2.0 + 2.6 k, each band a shallow cylinder so it runs
+    bright to dark, with the grinding wheel's hairlines; normal maps dithered against 8-bit banding) and
+    polished chamfers (anglage), a perlaged baseplate
     with 0.5 mm sinkings, gilt engravings lifted from the photo and recessed (PATEK PHILIPPE GENEVE SWISS,
     ADJUSTED…, 240, regulator marks). Procedural 3D gears: gold centre/third/fourth wheels (rounded teeth,
     spokes, polished hubs, circular graining), snailed steel crown wheels and ratchet. Jewels bored into the
-    bridges (polished countersink, domed ruby with its oil sink); slotted screws. Balance: Gyromax-style
-    glucydur rim and arm with four inertia blocks, staff in the cock, blue Spiromax-style hairspring. The 22K mini-rotor is a separate part on its own pivot
-    (`movement_rotor`: gold sector with Côtes de Genève, the Calatrava cross engraved 0.12 mm deep with a matte
-    floor, steel hub);
+    bridges (polished countersink, domed ruby with its oil sink); slotted screws. Balance: Patek's Gyromax,
+    measured on the photo (radial and angular profiles of its gold): rim outer r 3.95, 0.24 wide; four arms at
+    photo-view 82° + 90° k, ~0.45 mm wide widening to 0.6 at the weights; at each arm a weight (masselotte)
+    0.66 mm across centred 3.05 mm out, a slotted gold ring round a bright domed pin with a dark gap (it reads
+    as a "G", as photographed), slots set different ways; double roller with ruby impulse pin, staff in the
+    cock, Spiromax-style hairspring (12 turns, r 0.45–2.2) over the arms ending at its black stud under the
+    cock's edge. The balance and escapement sit in a pit 0.6 mm under the sinkings (`movement_pit_floor`,
+    darker: in shadow as photographed). Escapement (`escapement_layout()` in `movement_from_photo.py`, read on
+    the photo with the parts diagram): escape wheel 702 (20 club teeth, tips r 2.25, darker steel) on the train
+    bridge's gold chaton (-4.77, -7.66 photo view: its jewel, 2.9 mm from the seconds wheel's jewel); pallet
+    lever 710 pivoting in the round jewel left of the balance (-2.22, -8.59), fork reaching the impulse pin;
+    exit stone flat in its "⊐" socket at (-2.65…-2.17, -7.72), entry stone long and upright, its back in a
+    socket at (-2.9, -10.1) and its tip under the balance weight; pallet bridge 125 as in the diagram, a ring
+    round the roller with a lobe for the pallet jewel, lying under the balance (its two screws flat, clear of
+    the arms). Stack, deepest first: pit floor, escape wheel and stones, lever, pallet bridge, balance,
+    hairspring, cock. The train, from circles fitted to the gold teeth seen past the bridges (residuals
+    < 0.05 mm): the long toothed arc beside "ADJUSTED" is the barrel 415's gilt rim (steel drum, on the
+    barrel bridge's bushing, teeth r 5.4); it drives the centre wheel 200 (-3.62, -0.91, r 2.67; centres
+    6.4 mm apart); 210 third wheel (-3.02, -3.32); 220 fourth wheel on the train bridge's jewel (-7.14,
+    -6.06, r 2.56, meshing with the escape pinion), its arbor carrying the small seconds; 1481 reduction
+    wheel. All are whole wheels hidden by the plate and bridges where the photo shows them hidden.
+    Animated with the balance (clips `escape_wheel_step`, `pallet_lever_flip`): at every beat
+    (6 a second) the lever flips ±7° and the wheel steps half a tooth (9°); 48 beats in the 8 s loop. At t = 0 the balance stands exactly as
+    photographed (the photo is ~17° off axis, so in it the cock, 0.9 mm nearer the lens, sits ~0.2 mm off the
+    rim's centre; the model keeps the jewel on the balance's axis). The 22K mini-rotor is a separate part on its own pivot (`movement_rotor`,
+    pivot 6.47, 0.06: half-disc with Côtes de Genève 2.57 mm wide, an edge on its axis, the Calatrava cross cut
+    0.12 mm deep with a bright satin floor, a small hub notch for the polished steel hub and screw 51143, and
+    its own two slotted screws in countersunk holes near the straight edge, turning with it); its
+    ball bearing (dark ring with four notches round a satin race) stays fixed in the plate. The rotor's top
+    layer bevel hardens its normals (an un-hardened bevel shaded a seam across the big face);
     the photo's rotor was removed and the area it covered filled with the mechanism opposite the pivot.
-    Caseback window measured at r 13.4 mm. The sapphire print is still baked into the photo (it also shows,
+    Caseback window measured at r 13.4 mm. The anniversary print "Cortina Watch / 50th Anniversary / Since
+    1972" sits on the sapphire's inside face (`caseback_print`, texture from `blender/caseback_print.py`):
+    an old-style serif with descending 9 and 7 (Hoefler Text, as the SJX close-ups show), em 3.03 mm,
+    baselines 1.7 / -1.075 / -4.15 and centres x ≈ 0.65 (photo view), fitted to the print where it reads
+    over the gold rotor and the plate; white at 45 % (the movement shows through it, as photographed). The sapphire print is still baked into the photo (it also shows,
     upside down and faint, in the area under the rotor).
   - Strap: swept alligator (procedural scale normal map from `blender/gen_croc.py`) with brown calf lining
     (sampled from the clasp photos), curved back 108° as on a display cushion so the caseback stays visible
@@ -100,15 +147,23 @@ and `hairspring_breathe` (morph weights: the coils wind and unwind with the bala
   transmission pass re-rendered the movement washed out); brushed parts carry no anisotropy (the lathed meshes
   have no UVs, and three.js smeared the highlight over the whole caseback).
 - `js/studio.js`: the reflection/lighting studio is now lit on both sides (dial and caseback), dark grey rather
-  than black, with broad low softboxes for the case and bezel. The viewer lights mainly by it, with a weak key
+  than black, with broad low softboxes for the case and bezel, and a soft "light tent" panel behind the viewer
+  of the caseback (face-on plates, rotor and balance reflect a soft white, as in the retail photographs). The viewer lights mainly by it, with a weak key
   light for shadows.
-- `dev/glb.html`: three.js viewer for the GLB (static hands; drag to rotate). Each hand is still its own node
+- `js/rotor_physics.js`: the mini-rotor moved by the watch, as on the wrist: a damped pendulum about its
+  pivot (centre of mass 4R/3π off it, on the rotor's local -Y), driven by gravity in the watch's frame, the
+  watch turning about its own axis (inertia) and the watch's acceleration (jolts). It reads all three from
+  the rotor's parent each frame, so any motion of the watch works. Swing slowed to ~9 rad/s so it reads
+  (a real rotor is ~35), damping ratio 0.07. Used by `dev/glb.html` (in place of the GLB's `rotor_spin`
+  clip, which stays in the file) and by `js/cal240.js` (in place of its sine-wave "wrist motion").
+- `dev/glb.html`: three.js viewer for the GLB (static hands; drag to rotate; shift-drag turns the watch
+  about its own axis, and the rotor follows). `?zoom=5&at=x,y` moves the camera
+  5× closer, aimed at (x, y) in the watch frame (mm), for close-ups of the movement; `?t=0` freezes the
+  movement at that time (s): at 0 the rotor and balance stand as photographed. Each hand is still its own node
   (`hand_hour`, `hand_minute`, `hand_seconds`, `hand_date`, `hand_power`) pivoting about local Z.
   `vendor/three/addons/loaders/GLTFLoader.js` (+ `utils/SkeletonUtils.js`) were added from three r186.
 
-Still open for the Blender model: 5057R variant (rose gold, white dial, its own caseback photo); escape wheel
-and pallet fork (not modelled); the "Cortina Watch 50th Anniversary" sapphire print as a decal on the caseback
-glass (the finished movement no longer carries the photo, so the print is currently absent); strap
+Still open for the Blender model: 5057R variant (rose gold, white dial, its own caseback photo); strap
 holes; engraving on the clasp blade; tune materials under the gallery's own lighting (the dev viewer's dark
 environment makes the movement read paler than in Blender); swap `build5057('5057G')` for the GLB in the gallery.
 
@@ -133,6 +188,10 @@ environment makes the movement read paler than in Blender); swap `build5057('505
    that shows the text as a plain article.
 
 ## Reference photos
+
+- `watch photos/5057G/`: the 5057G (front, sides, caseback, dial at an angle, clasp close-ups).
+- `watch photos/240 movement.jpg`: Patek Philippe's exploded parts diagram of the Calibre 240, the source
+  of the part numbers used for the movement's objects (105, 110, 1149, 121, 125, 1143, 1481, 1497, 702, 710…).
 
 Photos shared in chat are not in the repo. Put the ones you want used or matched in
 `reference/` (or `assets/` if they should ship), e.g. 5057R front/back, 5057G

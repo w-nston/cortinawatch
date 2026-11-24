@@ -1,10 +1,13 @@
 # Real finishing for the 5057G's calibre 240, as material maps (glTF-friendly: plain textures).
 #
 #   movement_finish_{color.jpg, orm.png, normal.png}   over the movement (same planar mapping as
-#       the photo: photo-view mm, half-size 14.06): rhodium bridges with Côtes de Genève (curved
-#       polished bands ~1 mm), baseplate and sinkings with perlage (overlapping spots of circular
-#       graining), and the gilt engravings lifted from the caseback photo (lettering, PP seal,
-#       regulator marks, "240"), recessed and gold-filled.
+#       the photo: photo-view mm, half-size 14.06): rhodium bridges with Côtes de Genève (straight
+#       bands 2.6 mm wide, each a shallow cylinder, as measured on the photo: under its light every
+#       band runs bright to dark, a sawtooth, and the band edges line up across all the bridges, at
+#       photo-view x = 2.0 + 2.6 k), with the grinding wheel's fine hairlines; baseplate and
+#       sinkings with perlage (overlapping spots of circular graining), and the gilt engravings
+#       lifted from the caseback photo (lettering, PP seal, regulator marks, "240"), recessed and
+#       gold-filled.
 #   circular_graining_normal.png   concentric graining for the gold train wheels (wheel-local UV)
 #   snailing_normal.png            spiral snailing for the steel ratchet and crown wheels
 #
@@ -32,8 +35,9 @@ def normal_from_height(h, strength):
     return n / np.linalg.norm(n, axis=-1, keepdims=True)
 
 
-def to_png(n):
-    return Image.fromarray(((n * 0.5 + 0.5) * 255).astype(np.uint8))
+def to_png(n):   # dithered: smooth slopes (Côtes) would band in mirror-like reflections
+    d = np.random.default_rng(5057).uniform(-0.5, 0.5, n.shape)
+    return Image.fromarray(np.clip(np.round((n * 0.5 + 0.5) * 255 + d), 0, 255).astype(np.uint8))
 
 
 # ---- regions
@@ -49,15 +53,33 @@ gold = (r > g + 12) & (g > b + 12) & (sat > 0.16)
 gilt = gold & ndimage.binary_erosion(bridge, iterations=4)
 lab, n = ndimage.label(gilt)
 sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1)) / K ** 2
-keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if 0.004 < s < 2.5])  # lettering and seals, not wheels
+keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if 0.004 < s < 4.0])  # lettering and seals, not wheels
 gilt = ndimage.binary_closing(keep, iterations=1)
-print(f"gilt engravings: {gilt.sum() / K ** 2:.1f} mm² in {len([s for s in sizes if 0.004 < s < 2.5])} marks")
+# not engravings: the photo's gold chatons and the balance seen past the cock's head and the pallet bridge
+for cx_, cy_, r_, _ in data.get("chatons", []):
+    gilt &= np.hypot(X - cx_, Y - cy_) > r_ + 0.25
+bx_, by_ = data["chatons"][-1][:2] if data.get("chatons") else (0.52, -9.38)
+gilt &= np.hypot(X - bx_, Y - by_) > 2.05
+if "pallet_bridge" in data["bridges"]:
+    gilt &= ~Path(data["bridges"]["pallet_bridge"]).contains_points(pts).reshape(X.shape)
+print(f"gilt engravings: {gilt.sum() / K ** 2:.1f} mm² in {len([s for s in sizes if 0.004 < s < 4.0])} marks")
 
-# ---- Côtes de Genève on the bridges: bands across x, gently arched (cut by a rotating wheel)
-W_BAND = 1.05
-u = (X + 0.018 * Y ** 2) / W_BAND
+# ---- Côtes de Genève on the bridges: straight bands across x, each a shallow cylinder
+W_BAND, X0_BAND = 2.6, 2.0
+u = (X - X0_BAND) / W_BAND
 f = u - np.floor(u)
-cotes = np.sin(np.pi * f) ** 0.55                     # rounded band, crisp boundary
+cotes = 1 - (2 * f - 1) ** 2                          # cylinder: the slope runs evenly across the band
+# the grinding wheel's hairlines: fine streaks at -50° (as in the photo), from directional noise
+rng = np.random.default_rng(240)
+ang = math.radians(-50)
+hl_u = X * math.cos(ang) + Y * math.sin(ang)          # along the streaks
+hl_v = -X * math.sin(ang) + Y * math.cos(ang)         # across them
+hair = np.zeros(X.shape, np.float32)
+for k, (freq, amp) in enumerate(((14.0, 1.0), (23.0, 0.5), (9.0, 0.45))):   # lines per mm
+    ph = rng.uniform(0, 2 * np.pi, 64)
+    seg = np.floor(hl_u / 0.9).astype(int) % 64      # streaks break every ~0.9 mm along their length
+    hair += amp * np.sin(hl_v * freq * 2 * np.pi + ph[seg] + 3.1 * np.sin(hl_u * 1.7 + k))
+hair /= 1.95
 
 # ---- perlage on the plate: overlapping spots, each finely grained in rings
 perl = np.zeros(X.shape, np.float32)
@@ -78,15 +100,15 @@ for j, yc in enumerate(rows[::-1]):                   # later spots overlap earl
         perl[i0:i1, j0:j1][m] = spot[m]
 
 # ---- height, colour, roughness/metal
-h = np.where(bridge, cotes * 0.6, perl * 0.55)
+h = np.where(bridge, cotes * 4.5 + hair * 0.05, perl * 0.55)   # Côtes: ±5° across each band, subtle as photographed
 h = np.where(gilt, h - 0.9, h)                         # engraved
-h = ndimage.gaussian_filter(h, 0.7)
+h = ndimage.gaussian_filter(h, 0.9)
 nrm = normal_from_height(h, 0.012)
 col = np.zeros(X.shape + (3,), np.float32)
 col[:] = (212, 214, 217)                               # rhodium-plated plate
 col[bridge] = (226, 228, 231)                          # rhodium-plated bridges
 col[gilt] = (206, 152, 82)                             # gold-filled engravings
-rough = np.where(bridge, 0.2 + 0.1 * (1 - cotes), 0.34)
+rough = np.where(bridge, 0.2 + 0.04 * hair, 0.34)
 rough = np.where(gilt, 0.45, rough)
 orm = np.zeros(X.shape + (3,), np.uint8)
 orm[..., 0] = 255

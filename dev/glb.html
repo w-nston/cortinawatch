@@ -3,14 +3,15 @@
 <script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
 <style>html,body{margin:0;background:#111;overflow:hidden;color:#bbb;font:12px/1.4 system-ui,sans-serif}canvas{display:block}
 #hud{position:fixed;left:12px;bottom:10px;opacity:.7}</style></head>
-<body><div id="hud">drag to rotate · ?view=front|back|angle|macro|side|backangle</div><script type="module">
+<body><div id="hud">drag to rotate · shift-drag to turn it about its axis (the rotor follows) · ?view=front|back|angle|macro|side|backangle</div><script type="module">
 // Viewer for assets/models/5057G.glb, the Blender build (blender/build_5057.py): hands static as
 // photographed, the movement's mini-rotor turning (animation clip in the GLB).
 // The GLB is in millimetres with +Z out of the dial, the same frame as js/watch5057.js,
 // (+X crown, +Y 12 o'clock), 1 unit = 1 mm.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { studioEnvironment } from '../js/studio.js?v=3'; // bump when the studio changes (dev cache)
+import { studioEnvironment } from '../js/studio.js?v=4'; // bump when the studio changes (dev cache)
+import { RotorPhysics } from '../js/rotor_physics.js?v=1';
 
 const q = new URLSearchParams(location.search);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -29,7 +30,10 @@ scene.add(key);
 const cam = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 1, 2000);
 const view = q.get('view') || 'angle';
 const V = { front: [0, 0, 170], back: [0, 0, -170], angle: [70, -60, 140], macro: [-12, -16, 60], backangle: [-55, 40, -140], side: [170, 0, -2] }[view];
-cam.position.set(...V); cam.up.set(0, 1, 0); cam.lookAt(0, 0, view === 'macro' ? 0 : -6);
+// ?zoom=3 moves the camera 3× closer; ?at=x,y aims it at that point (watch frame, mm) for close-ups
+const [ax, ay] = (q.get('at') || '0,0').split(',').map(Number);
+cam.position.set(...V.map((v) => v / (+q.get('zoom') || 1))).add(new THREE.Vector3(ax, ay, 0));
+cam.up.set(0, 1, 0); cam.lookAt(ax, ay, view === 'macro' ? 0 : -6);
 if (view === 'back' || view === 'backangle') key.position.set(40, 50, -90);
 
 const root = new THREE.Group();
@@ -46,23 +50,36 @@ window.__gltf = gltf; window.__renderer = renderer; // for inspection from the c
 const N = (n) => gltf.scene.getObjectByName(n);
 // the movement runs: the GLB carries the mini-rotor's spin as an animation clip ("rotor_spin")
 const mixer = new THREE.AnimationMixer(gltf.scene);
-for (const clip of gltf.animations) mixer.clipAction(clip).play();
+// the movement runs on its clips; the mini-rotor instead swings with the watch's own motion
+for (const clip of gltf.animations) if (clip.name !== 'rotor_spin') mixer.clipAction(clip).play();
+const rotorPhys = N('movement_rotor') ? new RotorPhysics(N('movement_rotor')) : null;
+window.__rotor = rotorPhys;
 const clock = new THREE.Clock();
 for (const n of ['crystal', 'caseback_glass']) { const o = N(n); if (o) { o.castShadow = false; o.renderOrder = 5; } }
+// the anniversary print on the caseback sapphire's inside: drawn after the movement, before the glass
+{ const o = N('caseback_print'); if (o) { o.castShadow = false; o.receiveShadow = false; o.renderOrder = 4; o.material.depthWrite = false; } }
 // The watch is shown static: the dial is the photographed dial and the hands stand exactly where
 // they are in that photograph (10:09, date 20, ~39 h reserve). Each hand is its own node
 // (hand_hour, hand_minute, hand_seconds, hand_date, hand_power) pivoting about its local Z.
 
-// drag to rotate
-let drag = null, rx = 0, ry = 0;
-addEventListener('pointerdown', (e) => (drag = [e.clientX, e.clientY, rx, ry]));
+// drag to rotate; shift-drag turns the watch about its own axis, as a wrist does
+let drag = null, rx = 0, ry = 0, rz = 0;
+addEventListener('pointerdown', (e) => (drag = [e.clientX, e.clientY, rx, ry, rz]));
 addEventListener('pointerup', () => (drag = null));
-addEventListener('pointermove', (e) => { if (!drag) return; ry = drag[3] + (e.clientX - drag[0]) * 0.008; rx = drag[2] + (e.clientY - drag[1]) * 0.008; });
+addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  if (e.shiftKey) rz = drag[4] - (e.clientX - drag[0]) * 0.008;
+  else { ry = drag[3] + (e.clientX - drag[0]) * 0.008; rx = drag[2] + (e.clientY - drag[1]) * 0.008; }
+});
 addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 
+// ?t=0 freezes the movement at that time (s); at 0 the rotor and balance stand as photographed
+const tFreeze = q.has('t') ? +q.get('t') : null;
+if (tFreeze !== null) mixer.setTime(tFreeze);
 function frame() {
-  root.rotation.set(rx, ry, 0);
-  mixer.update(clock.getDelta());
+  root.rotation.set(rx, ry, rz);   // XYZ: rz turns the watch about its own axis
+  const dt = clock.getDelta();
+  if (tFreeze === null) { mixer.update(dt); rotorPhys?.update(dt); }
   renderer.render(scene, cam);
   requestAnimationFrame(frame);
 }
