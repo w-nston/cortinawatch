@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script></head>
+<body style="margin:0;background:#222;color:#ddd;font:14px sans-serif"><pre id="log"></pre><script type="module">
+// Bakes the canvas-drawn dial, moon disc and caseback print to PNGs for the Blender build
+// (blender/build_5057.py). Needs a server that accepts POST /save?name=… (see blender/README.md).
+import { drawDial, moonDiscTexture, casebackPrintTexture, VARIANTS } from '../js/watch5057.js';
+await document.fonts.ready;
+const log = (t) => (document.getElementById('log').textContent += t + '\n');
+const save = async (c, name) => {
+  const jpg = name.endsWith('.jpg');
+  const blob = await new Promise((r) => c.toBlob(r, jpg ? 'image/jpeg' : 'image/png', 0.92));
+  await fetch('/save?name=' + name, { method: 'POST', body: blob });
+  log('saved ' + name);
+};
+const N = 4096;
+for (const key of Object.keys(VARIANTS)) {
+  const v = VARIANTS[key];
+  for (const mode of ['color', 'orm']) {
+    const c = document.createElement('canvas'); c.width = c.height = N;
+    drawDial(c.getContext('2d'), N, v, mode);
+    await save(c, `dial_${key}_${mode}.${mode === 'color' ? 'jpg' : 'png'}`);
+  }
+  await save(casebackPrintTexture(v.print, 14.4).image, `caseback_${key}.png`);
+}
+await save(moonDiscTexture().image, 'moon_disc.png');
+window.__done = true;
+log('done');
+</script></body></html>

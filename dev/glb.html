@@ -1,0 +1,71 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>5057G model viewer</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#111;overflow:hidden;color:#bbb;font:12px/1.4 system-ui,sans-serif}canvas{display:block}
+#hud{position:fixed;left:12px;bottom:10px;opacity:.7}</style></head>
+<body><div id="hud">drag to rotate · ?view=front|back|angle|macro|side|backangle</div><script type="module">
+// Viewer for assets/models/5057G.glb, the Blender build (blender/build_5057.py): hands static as
+// photographed, the movement's mini-rotor turning (animation clip in the GLB).
+// The GLB is in millimetres with +Z out of the dial, the same frame as js/watch5057.js,
+// (+X crown, +Y 12 o'clock), 1 unit = 1 mm.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { studioEnvironment } from '../js/studio.js?v=3'; // bump when the studio changes (dev cache)
+
+const q = new URLSearchParams(location.search);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.NeutralToneMapping; renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101010);
+// lit mostly by the two-sided studio environment; a weak key light adds shadows and depth
+scene.environment = studioEnvironment(renderer);
+scene.environmentIntensity = 1.0;
+const key = new THREE.DirectionalLight(0xffffff, 0.8); key.position.set(-40, 50, 90); key.castShadow = true;
+Object.assign(key.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, far: 400 });
+key.shadow.mapSize.setScalar(2048); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
+scene.add(key);
+
+const cam = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 1, 2000);
+const view = q.get('view') || 'angle';
+const V = { front: [0, 0, 170], back: [0, 0, -170], angle: [70, -60, 140], macro: [-12, -16, 60], backangle: [-55, 40, -140], side: [170, 0, -2] }[view];
+cam.position.set(...V); cam.up.set(0, 1, 0); cam.lookAt(0, 0, view === 'macro' ? 0 : -6);
+if (view === 'back' || view === 'backangle') key.position.set(40, 50, -90);
+
+const root = new THREE.Group();
+scene.add(root);
+const gltf = await new GLTFLoader().loadAsync('../assets/models/5057G.glb?t=' + Date.now()) // dev: never a stale model;
+gltf.scene.traverse((o) => {
+  if (!o.isMesh) return;
+  o.castShadow = o.receiveShadow = true;
+  // same reflection boost js/watch5057.js gives its polished white gold
+  if (o.material.metalness === 1 && o.material.roughness < 0.15) o.material.envMapIntensity = 1.5;
+});
+root.add(gltf.scene);
+window.__gltf = gltf; window.__renderer = renderer; // for inspection from the console
+const N = (n) => gltf.scene.getObjectByName(n);
+// the movement runs: the GLB carries the mini-rotor's spin as an animation clip ("rotor_spin")
+const mixer = new THREE.AnimationMixer(gltf.scene);
+for (const clip of gltf.animations) mixer.clipAction(clip).play();
+const clock = new THREE.Clock();
+for (const n of ['crystal', 'caseback_glass']) { const o = N(n); if (o) { o.castShadow = false; o.renderOrder = 5; } }
+// The watch is shown static: the dial is the photographed dial and the hands stand exactly where
+// they are in that photograph (10:09, date 20, ~39 h reserve). Each hand is its own node
+// (hand_hour, hand_minute, hand_seconds, hand_date, hand_power) pivoting about its local Z.
+
+// drag to rotate
+let drag = null, rx = 0, ry = 0;
+addEventListener('pointerdown', (e) => (drag = [e.clientX, e.clientY, rx, ry]));
+addEventListener('pointerup', () => (drag = null));
+addEventListener('pointermove', (e) => { if (!drag) return; ry = drag[3] + (e.clientX - drag[0]) * 0.008; rx = drag[2] + (e.clientY - drag[1]) * 0.008; });
+addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+function frame() {
+  root.rotation.set(rx, ry, 0);
+  mixer.update(clock.getDelta());
+  renderer.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+frame();
+window.__ready = true;
+</script></body></html>

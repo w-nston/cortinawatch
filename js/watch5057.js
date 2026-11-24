@@ -87,9 +87,10 @@ export function drawDial(ctx, W, v, mode) {
   }
 
   // chapter ring (railway minute track)
-  const r0 = 13.65, r1 = 15.1;
-  if (v.ring && mode === 'color') {
-    ctx.fillStyle = v.ring;
+  const r0 = 12.85, r1 = 14.05; // measured on the 5057G front photo
+  if (v.ring) {
+    // printed black band: non-metallic in the ORM map so it stays black instead of grey
+    ctx.fillStyle = mode === 'color' ? v.ring : 'rgb(0,120,0)';
     ctx.beginPath(); ctx.arc(W / 2, W / 2, r1 * s, 0, TAU); ctx.arc(W / 2, W / 2, r0 * s, 0, TAU, true); ctx.fill();
   }
   ctx.strokeStyle = ink;
@@ -104,7 +105,7 @@ export function drawDial(ctx, W, v, mode) {
   }
   // SWISS cartouche at 6
   {
-    const [x, y] = P(0, -14.38);
+    const [x, y] = P(0, -13.45);
     ctx.fillStyle = mode === 'color' ? (v.ring || '#efeee8') : 'rgb(0,150,0)';
     ctx.fillRect(x - 1.0 * s, y - 0.36 * s, 2.0 * s, 0.72 * s);
     ctx.fillStyle = ink;
@@ -204,7 +205,7 @@ function sunburstAnisotropy(N = 256) {
   return t;
 }
 
-function moonDiscTexture() {
+export function moonDiscTexture() {
   const c = canvas(1024);
   const ctx = c.getContext('2d');
   const W = 1024, R = 4.3, s = W / (R * 2);
@@ -242,7 +243,7 @@ function moonDiscTexture() {
 }
 
 // Translucent print on the sapphire caseback (seen from behind).
-function casebackPrintTexture(print, r) {
+export function casebackPrintTexture(print, r) {
   const W = 2048, c = canvas(W), ctx = c.getContext('2d');
   const s = W / (r * 2);
   ctx.translate(W / 2, W / 2);
