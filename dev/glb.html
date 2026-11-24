@@ -10,6 +10,7 @@
 // (+X crown, +Y 12 o'clock), 1 unit = 1 mm.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { studioEnvironment } from '../js/studio.js?v=4'; // bump when the studio changes (dev cache)
 import { RotorPhysics } from '../js/rotor_physics.js?v=1';
 
@@ -29,17 +30,19 @@ scene.add(key);
 
 const cam = new THREE.PerspectiveCamera(24, innerWidth / innerHeight, 1, 2000);
 const view = q.get('view') || 'angle';
-const V = { front: [0, 0, 170], back: [0, 0, -170], angle: [70, -60, 140], macro: [-12, -16, 60], backangle: [-55, 40, -140], side: [170, 0, -2] }[view];
+const V = { front: [0, 0, 170], back: [0, 0, -170], angle: [70, -60, 140], macro: [-12, -16, 60], backangle: [-140, 14, -98], side: [200, 0, -20] }[view];
 // ?zoom=3 moves the camera 3× closer; ?at=x,y aims it at that point (watch frame, mm) for close-ups
 const [ax, ay] = (q.get('at') || '0,0').split(',').map(Number);
 cam.position.set(...V.map((v) => v / (+q.get('zoom') || 1))).add(new THREE.Vector3(ax, ay, 0));
-cam.up.set(0, 1, 0); cam.lookAt(ax, ay, view === 'macro' ? 0 : -6);
+// the strap is closed round a wrist-sized loop below the case: straight from the back it covers the
+// caseback (view=back shows the clasp); view=backangle looks in at the movement through the loop's side
+cam.up.set(0, 1, 0); cam.lookAt(ax, ay, { macro: 0, side: -20 }[view] ?? -6);
 if (view === 'back' || view === 'backangle') key.position.set(40, 50, -90);
 
 const root = new THREE.Group();
 scene.add(root);
 // ?model=5057R shows the 1997 Cortina Jubilee piece (default: the 5057G)
-const gltf = await new GLTFLoader().loadAsync(`../assets/models/${q.get('model') || '5057G'}.glb?t=` + Date.now()); // dev: never a stale model
+const gltf = await new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('../vendor/three/addons/libs/draco/gltf/')).loadAsync(`../assets/models/${q.get('model') || '5057G'}.glb?t=` + Date.now()); // dev: never a stale model
 gltf.scene.traverse((o) => {
   if (!o.isMesh) return;
   o.castShadow = o.receiveShadow = true;

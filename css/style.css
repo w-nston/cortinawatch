@@ -1,0 +1,783 @@
+/* The Anniversary Watches. The watch is the page: it fills the screen, floating in a warm, dark room,
+   and everything else is a hairline at its edges. Mobile first: base styles are the phone's; 600px and
+   900px only spread the controls out.
+   Colours: Cortina Watch's own theme (cortinawatch.com): its brown panels (#3C3531) and warm taupes, white
+   panels with slate text, its burgundy (#760C44) and the champagne of its Patek Philippe pages (#C9BC89).
+   Type: as on patek.com, Open Sans Light capitals for titles and Lora for text. */
+
+:root {
+  /* Cortina's palette */
+  --brown: #3c3531;          /* Secondary-500: the brown panels */
+  --brown-2: #534a44;        /* Secondary-400 */
+  --taupe: #6a605a;          /* Secondary-300 */
+  --stone: #928379;          /* Secondary-200 */
+  --sand: #c3bcb6;           /* Secondary-100 */
+  --linen: #eeecea;          /* Secondary-75 */
+  --paper: #f5f4f2;          /* Secondary-50 */
+  --white: #ffffff;
+  --slate: #2e3038;          /* Neutral-800: text on white */
+  --slate-2: #464850;        /* Neutral-700 */
+  --slate-3: #5d5f68;        /* Neutral-600 */
+  --wine: #760c44;           /* Primary-100: Cortina's burgundy */
+  --champagne: #c9bc89;      /* the Patek Philippe pages' colour */
+  /* the two golds */
+  --rose: #ecc3a2;
+  --white-gold: #e7e9f0;
+
+  --rule: rgba(255, 255, 255, 0.18);       /* hairlines on brown */
+  --rule-light: var(--linen);              /* hairlines on white */
+  --sans: 'Open Sans', 'Helvetica Neue', Arial, sans-serif;
+  --serif: 'Lora', Georgia, 'Times New Roman', serif;
+  --gutter: 18px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --top: calc(52px + env(safe-area-inset-top));          /* under the masthead */
+  --bottom: calc(148px + env(safe-area-inset-bottom));   /* over the captions and view buttons */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--brown);
+  color: var(--white);
+  font: 400 16px/1.75 var(--serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+::selection { background: var(--wine); color: var(--white); }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 1px solid var(--champagne); outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.eyebrow {
+  margin: 0 0 12px;
+  font: 300 11px/1.4 var(--sans);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- masthead: brown over the watch, white
+   with a hairline (as on cortinawatch.com) over the story */
+.masthead {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(14px + env(safe-area-inset-top)) var(--gutter) 22px;
+  background: linear-gradient(to bottom, rgba(60, 53, 49, 0.94) 50%, rgba(60, 53, 49, 0));
+  pointer-events: none;
+  transition: background-color 0.4s, color 0.4s, padding 0.4s;
+}
+.masthead.on-light {
+  padding-bottom: 14px;
+  background: var(--white);
+  border-bottom: 1px solid var(--paper);
+  color: var(--slate);
+}
+.masthead a { pointer-events: auto; text-decoration: none; }
+.wordmark, .masthead nav a {
+  font: 300 11px/1 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.wordmark span[aria-hidden] { margin: 0 0.45em; color: var(--champagne); }
+.masthead.on-light .wordmark span[aria-hidden] { color: var(--wine); }
+.masthead nav { display: none; }
+
+/* ---------------------------------------------------------------- the stage: the watch, full screen */
+.stage {
+  position: relative;
+  height: 100vh;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  background:
+    radial-gradient(72% 48% at 50% 44%, rgba(146, 131, 121, 0.42) 0%, rgba(106, 96, 90, 0.3) 40%, rgba(60, 53, 49, 0) 76%),
+    linear-gradient(to bottom, var(--brown) 0%, #352f2b 100%);
+}
+.stage-canvas { position: absolute; inset: 0; }
+.stage-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y;        /* sideways drags turn the watch, two fingers zoom; the page still scrolls */
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+.stage.is-ready .stage-canvas canvas { opacity: 1; }
+.stage-canvas canvas:active { cursor: grabbing; }
+
+/* the seam between 1997 and 2022 */
+.seam {
+  position: absolute;
+  z-index: 2;
+  top: var(--top);
+  bottom: var(--bottom);
+  left: calc(var(--seam) * 100%);
+  width: 0;
+  opacity: 0;
+  transition: opacity 0.8s var(--ease);
+}
+.stage.is-ready .seam { opacity: 1; }
+.seam-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -0.5px;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(201, 188, 137, 0), rgba(201, 188, 137, 0.85) 22%, rgba(201, 188, 137, 0.85) 78%, rgba(201, 188, 137, 0));
+  pointer-events: none;
+}
+.seam-handle {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--champagne);
+  border-radius: 50%;
+  background: rgba(60, 53, 49, 0.6);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--champagne);
+  cursor: ew-resize;
+  touch-action: none;
+  /* stays on screen when the seam reaches an edge */
+  transform: translateX(calc((0.5 - var(--seam)) * 56px));
+}
+.seam-handle svg { width: 20px; height: 20px; }
+.seam-handle::before {        /* a bigger target for thumbs */
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+}
+.seam-hint {
+  position: absolute;
+  top: calc(100% + 30px);
+  left: 0;
+  transform: translateX(-50%);
+  font: 300 9.5px/1.4 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--sand);
+  width: 120px;
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+.stage.seam-used .seam-hint, .stage.is-anatomy .seam-hint { opacity: 0; }
+
+/* zoom */
+.zoom {
+  position: absolute;
+  z-index: 3;
+  right: var(--gutter);
+  top: calc(var(--top) + 22px);
+  display: grid;
+  border: 1px solid var(--rule);
+  background: rgba(60, 53, 49, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.zoom button {
+  width: 40px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 300 20px/1 var(--sans);
+  color: var(--linen);
+  cursor: pointer;
+}
+.zoom button + button { border-top: 1px solid var(--rule); }
+.zoom .tool {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  height: 52px;
+  padding: 6px 0 5px;
+  color: var(--sand);
+}
+.zoom .tool svg { width: 20px; height: 20px; }
+.zoom .tool span { font: 400 7.5px/1 var(--sans); letter-spacing: 0.14em; text-transform: uppercase; }
+.zoom .tool[aria-pressed='true'] { color: var(--champagne); background: rgba(201, 188, 137, 0.16); }
+.zoom .tool[hidden] { display: none; }
+.zoom .tilt.is-asking { animation: ask 1.6s var(--ease) 3; }
+@keyframes ask { 50% { color: var(--white); background: rgba(201, 188, 137, 0.3); } }
+
+/* the opening: lines over the watch, everything else held back until it is done */
+.intro-lines {
+  position: absolute;
+  z-index: 4;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(64px + env(safe-area-inset-bottom));
+  height: 110px;
+  pointer-events: none;
+  text-align: center;
+}
+.intro-lines p {
+  position: absolute;
+  inset: auto 0 0;
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.9s var(--ease), transform 1.1s var(--ease);
+}
+.intro-lines[data-step='1'] p[data-line='1'], .intro-lines[data-step='2'] p[data-line='2'],
+.intro-lines[data-step='3'] p[data-line='3'] { opacity: 1; transform: none; }
+.il-yr { font: 300 44px/1 var(--sans); letter-spacing: 0.08em; }
+.il-r { color: var(--rose); }
+.il-g { color: var(--white-gold); }
+.il-sub { font: 400 10px/1.5 var(--sans); letter-spacing: 0.24em; text-transform: uppercase; color: var(--linen); }
+.il-big { font: 300 22px/1.3 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--white); }
+.intro-skip {
+  position: absolute;
+  z-index: 4;
+  right: var(--gutter);
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font: 400 10px/1 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 5px;
+  color: var(--sand);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+.stage.is-intro .intro-skip { opacity: 1; pointer-events: auto; }
+.stage:not(.is-ready) :is(.captions, .modes, .zoom, .clock),
+.stage.is-intro :is(.captions, .modes, .zoom, .clock, .seam-handle, .seam-hint, .parts-go) {
+  opacity: 0;
+  pointer-events: none;
+}
+.captions, .modes, .zoom, .clock, .seam-handle { transition: opacity 0.9s var(--ease); }
+
+/* the time shown: 10:10 or live, a small pill under the masthead */
+.clock {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: calc(var(--top) + 2px);
+  transform: translateX(-50%);
+  display: flex;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(60, 53, 49, 0.5);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+.clock button {
+  min-width: 58px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  font: 300 10px/1 var(--sans);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--sand);
+  cursor: pointer;
+  transition: color 0.3s, background-color 0.3s;
+}
+.clock button[aria-pressed='true'] { color: var(--white); background: rgba(201, 188, 137, 0.18); }
+.stage.no-webgl .clock { display: none; }
+
+/* the loupe: a lens that follows the finger, its rim gilt, the Calatrava cross on a medallion */
+.stage-canvas canvas { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.loupe {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  left: 0;
+  width: 168px;
+  height: 168px;
+  margin: -84px 0 0 -84px;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.25s var(--ease), transform 0.3s var(--ease);
+  will-change: translate;
+}
+.loupe.is-on { opacity: 1; transform: scale(1); }
+.loupe canvas {
+  position: absolute;
+  inset: 6.5%;
+  width: 87%;
+  height: 87%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #6a605a, #3c3531 75%);
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.55);
+}
+.loupe-rim { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.45)); }
+
+
+/* the two watches, at the bottom corners: tap one to see it whole and read its story */
+.captions {
+  position: absolute;
+  z-index: 3;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(76px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.cap {
+  pointer-events: auto;
+  display: grid;
+  gap: 5px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--sand);
+  transition: color 0.4s;
+}
+.cap + .cap { text-align: right; }
+.cap.is-lead { color: var(--white); }
+.cap-yr { font: 300 24px/1 var(--sans); letter-spacing: 0.06em; transition: opacity 0.4s; }
+.cap-ref { font: 400 9.5px/1.3 var(--sans); letter-spacing: 0.22em; text-transform: uppercase; }
+.cap-more {
+  font: 400 9.5px/1.3 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--champagne);
+}
+.cap[data-id='5057r'] .cap-yr { color: var(--rose); }
+.cap[data-id='5057g'] .cap-yr { color: var(--white-gold); }
+.cap:not(.is-lead) .cap-yr { opacity: 0.5; }
+
+/* dial / movement / anatomy */
+.modes {
+  position: absolute;
+  z-index: 3;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--rule);
+  background: rgba(60, 53, 49, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.modes button {
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  font: 300 10.5px/1 var(--sans);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sand);
+  cursor: pointer;
+  transition: color 0.3s, background-color 0.3s;
+}
+.modes button + button { border-left: 1px solid var(--rule); }
+.modes button[aria-pressed='true'] { color: var(--white); background: rgba(201, 188, 137, 0.16); }
+
+/* part names beside the watch taken apart: tap one to see that part alone */
+.labels { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: 400 8.5px/1.35 var(--sans);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--linen);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.5s;
+  will-change: transform;
+}
+.label::before { content: ''; width: 18px; height: 1px; background: var(--champagne); flex: none; }
+.label.is-left { flex-direction: row-reverse; }
+.label.is-on { opacity: 1; pointer-events: auto; }
+
+/* Anatomy: the hint, then one part on its own with its card */
+.parts-go {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: calc(var(--top) + 46px);
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--champagne);
+  border-radius: 999px;
+  background: rgba(60, 53, 49, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  font: 400 10px/1 var(--sans);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--champagne);
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -6px);
+  transition: opacity 0.5s, transform 0.5s var(--ease);
+}
+.stage.is-anatomy:not(.is-focus) .parts-go { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); transition-delay: 1.4s; }
+.stage.is-focus .stage-canvas canvas { touch-action: none; }   /* a part alone turns every way */
+.stage.is-focus .captions { opacity: 0; pointer-events: none; }
+.stage.is-focus .seam-hint { opacity: 0; }
+.captions { transition: opacity 0.4s; }
+.part {
+  position: absolute;
+  z-index: 4;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  padding: 12px 4px 6px;
+  border: 1px solid var(--rule);
+  background: rgba(60, 53, 49, 0.62);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
+}
+.part[hidden] { display: grid; opacity: 0; transform: translateY(10px); pointer-events: none; }
+.part-step {
+  width: 40px;
+  height: 44px;
+  padding: 10px;
+  border: 0;
+  background: none;
+  color: var(--champagne);
+  cursor: pointer;
+}
+.part-kicker {
+  margin: 0;
+  font: 400 9.5px/1.4 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--champagne);
+}
+.part-name {
+  margin: 4px 0 6px;
+  font: 300 18px/1.2 var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.part-note { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--linen); }
+.part-all {
+  grid-column: 1 / -1;
+  justify-self: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  font: 400 9.5px/1 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 5px;
+  color: var(--sand);
+  cursor: pointer;
+}
+
+.loader {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  font: 300 10px/1.4 var(--sans);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--sand);
+  transition: opacity 0.6s;
+}
+.loader[hidden] { display: grid; opacity: 0; pointer-events: none; }
+.loader-line { display: block; width: 140px; height: 1px; background: var(--rule); overflow: hidden; }
+.loader-line i { display: block; height: 100%; width: 0; background: var(--champagne); transition: width 0.25s linear; }
+
+.no-webgl-note { display: none; }
+.stage.no-webgl .no-webgl-note {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  transform: translate(-50%, -50%);
+  width: min(22em, 80%);
+  margin: 0;
+  text-align: center;
+  color: var(--sand);
+}
+.stage.no-webgl :is(.seam, .zoom, .modes, .loader) { display: none; }
+
+/* the story of a watch: a sheet from the bottom on phones, a drawer on the right on wide screens */
+.sheet {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 62%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 30px var(--gutter) calc(28px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule);
+  background: rgba(60, 53, 49, 0.9);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transform: translateY(0);
+  transition: transform 0.55s var(--ease), visibility 0s;
+}
+.sheet[hidden] {
+  display: block;
+  visibility: hidden;
+  transform: translateY(100%);
+  transition: transform 0.45s var(--ease), visibility 0s 0.45s;
+}
+.sheet-close {
+  position: absolute;
+  z-index: 1;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  padding: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(60, 53, 49, 0.78);      /* readable over the photograph */
+  color: var(--white);
+  cursor: pointer;
+}
+.plaque .kicker {
+  margin: 0;
+  padding-right: 40px;
+  font: 400 10.5px/1.5 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--champagne);
+}
+.plaque h2 {
+  margin: 8px 0 14px;
+  font: 300 30px/1.05 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.plaque p:not(.kicker) { margin: 0 0 1em; font-size: 15.5px; line-height: 1.72; color: var(--linen); }
+.plaque dl { margin: 20px 0 0; }
+.plaque dl div {
+  display: grid;
+  grid-template-columns: 7.4em 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+}
+.plaque dt { font: 400 10px/2.1 var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--sand); }
+.plaque dd { margin: 0; font-size: 14px; line-height: 1.6; }
+
+/* photographs from the Cortina Watch page */
+.photo { margin: 0 0 18px; overflow: hidden; background: var(--linen); }
+.photo img { display: block; width: 100%; height: auto; }
+.photos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+.photos .photo { margin: 0; }
+.photos .photo img { aspect-ratio: 4 / 3; object-fit: cover; }
+.plaque .photo { margin: 0 0 20px; background: var(--brown-2); }
+.finale .photo { max-width: 880px; margin: 0 auto 44px; background: var(--brown-2); }
+
+/* ---------------------------------------------------------------- the story: a white panel */
+.story {
+  padding: 72px var(--gutter) 64px;
+  background: var(--white);
+  color: var(--slate);
+}
+.story ::selection { background: var(--wine); color: var(--white); }
+.story-head, .timeline, .finale-inner { max-width: 880px; margin-left: auto; margin-right: auto; }
+.story .eyebrow { color: var(--stone); }
+.story-head h2 {
+  margin: 0 0 18px;
+  font: 300 26px/1.2 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slate);
+}
+.lede { margin: 0; max-width: 36em; font-size: 16.5px; color: var(--slate-2); }
+.timeline { list-style: none; padding: 0; margin: 44px auto 0; }
+.timeline li { display: grid; gap: 8px; padding: 26px 0; border-top: 1px solid var(--rule-light); }
+.timeline .when { margin: 0; font: 300 22px/1.2 var(--sans); letter-spacing: 0.05em; color: var(--slate); }
+.timeline h3 {
+  margin: 0 0 8px;
+  font: 400 11.5px/1.6 var(--sans);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wine);
+}
+.timeline p:not(.when) { margin: 0; color: var(--slate-2); }
+.to-vitrine {
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 400 11px/1.4 var(--sans);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-decoration-color: var(--sand);
+  text-underline-offset: 6px;
+  color: var(--slate);
+  cursor: pointer;
+}
+
+/* the close: a brown panel again */
+.finale {
+  padding: 64px var(--gutter) 72px;
+  background: var(--brown);
+  color: var(--white);
+  text-align: center;
+}
+.finale .eyebrow { color: var(--champagne); }
+.finale h2 {
+  margin: 0 auto 18px;
+  max-width: 18em;
+  font: 300 22px/1.35 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.finale p { margin: 0 auto; max-width: 32em; color: var(--linen); }
+/* Cortina's button: white with burgundy letters, burgundy when pressed */
+.cta {
+  display: inline-block;
+  margin-top: 32px;
+  padding: 16px 24px;
+  border: 1px solid var(--white);
+  background: var(--white);
+  color: var(--wine);
+  font: 400 10.5px/1.3 var(--sans);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 0.3s, background-color 0.3s, border-color 0.3s;
+}
+.cta:active { background: var(--wine); border-color: var(--wine); color: var(--white); }
+.colophon {
+  padding: 26px var(--gutter) calc(34px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--paper);
+  background: #f9f9fa;      /* Neutral-50, as Cortina's footer */
+  font: 300 11.5px/1.7 var(--sans);
+  letter-spacing: 0.04em;
+  color: var(--slate-3);
+  text-align: center;
+}
+.colophon p { margin: 0 auto; max-width: 52em; }
+
+@media (hover: hover) {
+  .zoom button:hover, .modes button:hover, .cap:hover { color: var(--white); }
+  .seam-handle:hover { background: rgba(201, 188, 137, 0.18); }
+  .to-vitrine:hover { text-decoration-color: var(--wine); }
+  .cta:hover { background: var(--wine); border-color: var(--wine); color: var(--white); }
+}
+
+/* ---------------------------------------------------------------- tablets */
+@media (min-width: 600px) {
+  :root { --gutter: 32px; --bottom: calc(160px + env(safe-area-inset-bottom)); }
+  .label { font-size: 9.5px; }
+  .modes { left: 50%; right: auto; width: 420px; transform: translateX(-50%); }
+  .captions { bottom: calc(90px + env(safe-area-inset-bottom)); }
+  .part { left: 50%; right: auto; width: 460px; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .part[hidden] { transform: translate(-50%, 10px); }
+  .cap-yr { font-size: 28px; }
+  .timeline li { grid-template-columns: 10rem 1fr; gap: 24px; padding: 32px 0; }
+  .photos .photo img { aspect-ratio: 16 / 9; }
+  .timeline .when { font-size: 26px; }
+  .story-head h2 { font-size: 34px; }
+}
+
+/* ---------------------------------------------------------------- wide screens */
+@media (min-width: 900px) {
+  :root { --gutter: clamp(32px, 4vw, 64px); --top: 76px; --bottom: 120px; }
+  .masthead { justify-content: space-between; padding: 22px var(--gutter) 34px; }
+  .masthead.on-light { padding-bottom: 20px; }
+  .masthead nav { display: flex; gap: 32px; }
+  .masthead nav a { opacity: 0.8; transition: opacity 0.3s; }
+  .masthead nav a:hover { opacity: 1; }
+  .wordmark, .masthead nav a { font-size: 12px; letter-spacing: 0.28em; }
+  .stage { min-height: 640px; }
+  .zoom { top: 50%; transform: translateY(-50%); }
+  .loupe { width: 220px; height: 220px; margin: -110px 0 0 -110px; }
+  .seam-hint { width: auto; white-space: nowrap; }
+  .intro-lines { bottom: 110px; }
+  .il-yr { font-size: 64px; }
+  .il-sub { font-size: 11px; }
+  .il-big { font-size: 30px; }
+  .intro-skip { bottom: 32px; }
+  .captions { bottom: 32px; }
+  .cap-yr { font-size: 34px; }
+  .cap-ref, .cap-more { font-size: 10.5px; }
+  .modes { bottom: 32px; }
+  .part { bottom: 96px; }
+  .part-name { font-size: 22px; }
+  .part-note { font-size: 14.5px; }
+  .modes button { font-size: 11px; letter-spacing: 0.24em; }
+  .sheet {
+    top: 0;
+    left: auto;
+    width: 420px;
+    max-height: none;
+    padding: 96px 40px 40px;
+    border-top: 0;
+    border-left: 1px solid var(--rule);
+  }
+  .sheet[hidden] { transform: translateX(100%); }
+  .sheet-close { top: 72px; right: 24px; }
+  .plaque h2 { font-size: 40px; }
+  .story { padding: clamp(96px, 14vh, 150px) var(--gutter) clamp(72px, 10vh, 120px); }
+  .story-head h2 { font-size: clamp(30px, 3.4vw, 44px); }
+  .lede { font-size: 17px; }
+  .timeline li { grid-template-columns: 11rem 1fr; padding: 34px 0; }
+  .finale { padding: clamp(80px, 12vh, 130px) var(--gutter); }
+  .finale h2 { font-size: clamp(24px, 2.8vw, 36px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; }
+}

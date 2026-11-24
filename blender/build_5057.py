@@ -47,12 +47,12 @@ POSE = dict(hour=143.6, minute=29.3, power=16.0, date=220.0, seconds=96.5)
 VARIANT = globals().get("VARIANT", "5057G")
 VARIANTS = {
     "5057G": dict(metal=0xE4E5E7, satin=0xD6D7DA, metal_name="WG", rehaut=0x34363A, hands="white gold",
-                  dial="dial_5057G_photo", numerals=True, moon="navy", lining=0x947C66,
-                  print="caseback_print_5057G.png", finish="movement_finish", pose=POSE),
+                  dial="dial_5057G_clean", numerals=True, moon="navy", lining=0x947C66,
+                  print="caseback_print_5057G.png", finish="movement_finish", pose=POSE, cross=0xDADBDE),
     # 18K rose gold as photographed: a pale, warm gold (hue ~33°), more yellow than copper
     "5057R": dict(metal=0xF0CDA0, satin=0xE2BE93, metal_name="RG", rehaut=0xE0BC94, hands="black",
-                  dial="dial_5057R_photo", numerals=False, moon="blue", lining=0xB39B78,
-                  print="caseback_print_5057R.png", finish="movement_finish_5057R",
+                  dial="dial_5057R_clean", numerals=False, moon="blue", lining=0xB39B78,
+                  print="caseback_print_5057R.png", finish="movement_finish_5057R", cross=0xF0CDA0,
                   pose=dict(hour=143.0, minute=22.3, power=11.6, date=111.0, seconds=-73.2)),   # as photographed (dial_5057r_from_photo.py)
 }
 VAR = VARIANTS[VARIANT]
@@ -526,7 +526,8 @@ def build_numerals(M, f):
 
 
 def build_inside(M):
-    # dial: the photographed dial (two photos, hands removed; blender/dial_from_photo.py),
+    # dial: the photographed dial with the photographed hands taken out (dial_from_photo.py /
+    # dial_5057r_from_photo.py, then dial_clean.py, which rebuilds each dial under its hands from the other),
     # including its moon phase, since the watch is shown static
     dn = VAR["dial"]
     if VARIANT == "5057G":
@@ -1366,8 +1367,9 @@ def text_outlines(body, cap):
     return [[((x - cx) * k, (y - cy) * k) for x, y in lp] for lp in loops]
 
 
-def keeper(name, w, t, length, wall, mat_):
-    """Leather keeper loop round a strap of width w and thickness t; local X across, Y along, Z up."""
+def keeper(name, w, t, length, wall, mat_, dz=0.0):
+    """Leather keeper loop round a strap of width w and thickness t (its middle dz up from the strap's
+    centre line); local X across, Y along, Z up."""
     def rrect(hw, ht, r, n=6):
         pts = []
         for cx, cy, a0 in ((hw - r, ht - r, 0), (-hw + r, ht - r, 90), (-hw + r, -ht + r, 180), (hw - r, -ht + r, 270)):
@@ -1377,8 +1379,21 @@ def keeper(name, w, t, length, wall, mat_):
     inner = rrect(w / 2 + 0.15, t / 2 + 0.15, t / 2 + 0.1)
     outer = rrect(w / 2 + 0.15 + wall, t / 2 + 0.15 + wall, t / 2 + 0.1 + wall)
     o = flat_plate(outer, [inner[::-1]], length / 2, length, name, [mat_, mat_])
-    o.data.transform(Matrix.Rotation(math.pi / 2, 4, "X"))  # extrusion -> along the strap
+    o.data.transform(Matrix.Translation((0, 0, dz)) @ Matrix.Rotation(math.pi / 2, 4, "X"))  # extrusion -> along the strap
     return o
+
+
+def resample(pts):
+    """[(y, z), ...] -> strap path samples (s, y, z, ty, tz): arc length and unit tangent at each point."""
+    out, s = [], 0.0
+    for i, (y, z) in enumerate(pts):
+        if i:
+            s += math.hypot(y - pts[i - 1][0], z - pts[i - 1][1])
+        a, b = pts[max(i - 1, 0)], pts[min(i + 1, len(pts) - 1)]
+        ty, tz = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(ty, tz)
+        out.append((s, y, z, ty / n, tz / n))
+    return out
 
 
 def build_strap(M):
@@ -1404,11 +1419,29 @@ def build_strap(M):
     nt.links.new(nm.outputs["Normal"], bsdf.inputs["Normal"])
     lining = mat("Lining calf", srgb(VAR["lining"]), 0, 0.65)  # 5057G: sampled from the clasp photos
 
-    # curled back as on a display cushion, but only 108° so the tails stay clear of the caseback
-    # when the watch is seen from behind
-    p12 = strap_path([(5, 0), (36, 108), (26, 0)])
-    p6 = strap_path([(5, 0), (36, 108), (30, 0)])
-    strap("strap_12", p12, 20.0, 16.0, 3.4, 2.6, 8.0, [top, lining])
+    # Closed, as worn: the straps wrap a wrist-sized loop (63 x 35 mm inside, a ~17 cm wrist) and
+    # meet under it at the shut folding clasp. Each half leaves its lug 2 mm straight, rounds the top
+    # corner (r 15), goes down the side and under (r 24) and runs flat under the clasp to the middle.
+    HALF = [(2, 0), (15.06 * 82 * DEG, 82), (24 * 90 * DEG, 90), (9, 0)]
+    half = strap_path(HALF)
+    Lh = half[-1][0]
+    # the 6 o'clock strap carries the clasp: it runs on 11 mm past the middle, the frame over the middle
+    p6 = strap_path(HALF[:-1] + [(9 + 11, 0)])
+    # the 12 o'clock strap's tail goes on under it, 28 mm round the far side, D further in (beneath the
+    # clasp's folded blade), dipping in just before the 6 o'clock strap's end
+    D = 2.6 / 2 + 1.1 + 2.6 / 2 + 0.05
+    TAIL = 28.0
+    base = resample([(y, z) for _, y, z, _, _ in half] +
+                    [(-y, z) for s_, y, z, _, _ in reversed(half) if Lh - TAIL <= s_ < Lh - 1e-6])
+
+    def dip(s_):
+        k = min(1.0, max(0.0, (s_ - (Lh - 26.0)) / 14.0))
+        return D * k * k * (3 - 2 * k)
+    p12 = resample([(y + dip(s_) * tz, z - dip(s_) * ty) for s_, y, z, ty, tz in base])
+    L12, L6 = p12[-1][0], p6[-1][0]
+    # 20 mm at the lugs to 16 mm at the clasp, and 2.6 mm thick there, on both straps
+    w12, t12 = 20.0 - 4.0 * L12 / Lh, 3.4 - 0.8 * L12 / Lh
+    strap("strap_12", p12, 20.0, w12, 3.4, t12, 8.0, [top, lining])
     strap("strap_6", p6, 20.0, 16.0, 3.4, 2.6, 0, [top, lining], mirror=True)
 
     # Folding clasp on the 6 o'clock tail, as photographed (watch photos/5057G/clasp-*): a polished
@@ -1435,18 +1468,22 @@ def build_strap(M):
     o = lathe([(0, 0.12), (0.3, 0.1), (0.36, 0.0), (0, 0.0)], segs=24, name="clasp_pin", mat=M["satin"])
     o.location = (0, RO + 1.55, 1.78)
     parts.append((o, t_top - 0.25))
-    # the cross (brushed top, like the photos), arm tips 0.15 mm into the frame
-    satin = mat("WG satin (clasp cross)", srgb(0xDADBDE), 1, 0.2)
+    # the cross (brushed top, like the photos) in the case's own gold, arm tips 0.15 mm into the frame
+    satin = mat(f"{VAR['metal_name']} satin (clasp cross)", srgb(VAR["cross"]), 1, 0.2)
     o = flat_plate(calatrava_cross(RI + 0.15), [], 1.2, 0.55, "clasp_cross", [satin, M["polish"]])
     parts.append((o, t_top - 0.25))
-    # keepers, watch side of the frame
+    # keepers, watch side of the frame, round the 6 o'clock strap and the 12 o'clock tail inside it
     keep_m = mat("Keeper alligator black", srgb(0x060608), 0, 0.28, **{"Coat Weight": 0.45, "Coat Roughness": 0.18})
     for i, ds in enumerate((-RO - 3.2, -RO - 7.0)):
-        o = keeper(f"strap_keeper_{i + 1}", 16.0, 2.6, 3.2, 0.75, keep_m)
-        o.matrix_world = frame_at(p6, s_clasp + ds, mirror=True)
-    # folding blade under the tail
-    blade = [(x, y) for (x, y) in arc(0, 10.5, 6.2, 0, math.pi, 24)] + [(x, y) for (x, y) in arc(0, -10.5, 6.2, math.pi, TAU, 24)]
-    hole = arc(0, 8.0, 1.7, TAU, 0, 32)
+        sk = s_clasp + ds
+        w6, t6 = 20.0 - 4.0 * sk / L6, 3.4 - 0.8 * sk / L6
+        t_in = t12 + 0.2                                   # the tail, near its end
+        o = keeper(f"strap_keeper_{i + 1}", w6, t6 / 2 + D + t_in / 2, 3.2, 0.75, keep_m,
+                   dz=(t6 / 2 - D - t_in / 2) / 2)
+        o.matrix_world = frame_at(p6, sk, mirror=True)
+    # the folding blade, shut under the frame: it stays under the 6 o'clock strap, short of its end
+    blade = [(x, y) for (x, y) in arc(0, 3.3, 6.2, 0, math.pi, 24)] + [(x, y) for (x, y) in arc(0, -13.5, 6.2, math.pi, TAU, 24)]
+    hole = arc(0, 1.0, 1.7, TAU, 0, 32)
     o = flat_plate(blade, [hole], 0.0, 0.9, "clasp_blade", [M["polish"], M["polish"]])
     parts.append((o, -t_top - 0.15))
     for o, dz in parts:

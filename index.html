@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Anniversary Watches · Patek Philippe & Cortina Watch</title>
+<meta name="description" content="One watch, twenty-five years apart: the Patek Philippe Ref. 5057R Cortina Jubilee (1997) and Ref. 5057G Cortina Watch 50th Anniversary (2022) in 3D.">
+<meta name="theme-color" content="#0b0a09">
+<!-- Patek Philippe's own site sets its titles in Open Sans Light capitals and its text in Lora -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Open+Sans:wght@300;400;600&display=swap">
+<link rel="stylesheet" href="css/style.css?v=9">
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+</head>
+<body>
+<header class="masthead">
+  <a class="wordmark" href="#vitrine">Patek Philippe <span aria-hidden="true">×</span><span class="sr-only">and</span> Cortina Watch</a>
+  <nav aria-label="Sections"><a href="#vitrine">The watch</a><a href="#story">The story</a></nav>
+</header>
+
+<main>
+  <section class="stage" id="vitrine" aria-labelledby="stage-title" style="--seam: 0.5">
+    <h1 class="sr-only" id="stage-title">The Anniversary Watches: the Ref. 5057R of 1997 and the Ref. 5057G of 2022</h1>
+    <div class="stage-canvas" id="stage"></div>
+
+    <div class="loader" id="loader" role="status"><span class="loader-line"><i id="loader-fill"></i></span><span id="loader-text">Bringing out the watches</span></div>
+    <p class="no-webgl-note">The watches are shown in 3D, which needs WebGL; this browser has it turned off.</p>
+
+    <!-- part names, beside the watch when it is taken apart -->
+    <div class="labels" id="labels" aria-hidden="true"></div>
+
+    <!-- the seam: left of it the watch is the 1997 Ref. 5057R, right of it the 2022 Ref. 5057G -->
+    <div class="seam" id="seam">
+      <span class="seam-line" aria-hidden="true"></span>
+      <button class="seam-handle" id="seam-handle" type="button" role="slider" aria-label="Slide between the 1997 watch and the 2022 watch" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-valuetext="Half 1997, half 2022">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <span class="seam-hint" aria-hidden="true">Slide through 25 years</span>
+    </div>
+
+    <!-- the tools: zoom, the loupe, tilt (phones) -->
+    <div class="zoom" role="group" aria-label="Tools">
+      <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+      <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+      <button type="button" class="tool" id="loupe-btn" aria-pressed="false" aria-label="Loupe: a lens to look closer">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M15 15l5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7.6 9.2a3.4 3.4 0 0 1 2.4-2.1" fill="none" stroke="currentColor" stroke-width="0.9"/></svg>
+        <span>Loupe</span>
+      </button>
+      <button type="button" class="tool tilt" id="tilt" aria-pressed="false" aria-label="Tilt your phone to turn the watch" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3.5" width="8" height="15" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.1" transform="rotate(-14 12 11)"/><path d="M4.5 17.5c1.6 2 4 3.2 6.6 3.2M19.5 17.5c-.9 1.1-2 2-3.3 2.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
+        <span>Tilt</span>
+      </button>
+    </div>
+
+    <!-- the time the hands show -->
+    <div class="clock" role="group" aria-label="Time shown">
+      <button type="button" data-time="tenten" aria-pressed="true">10:10</button>
+      <button type="button" data-time="live" aria-pressed="false">Live</button>
+    </div>
+
+    <!-- the loupe: press and hold on the watch -->
+    <div class="loupe" id="loupe" aria-hidden="true">
+      <canvas id="loupe-lens"></canvas>
+      <svg class="loupe-rim" viewBox="0 0 200 200">
+        <defs>
+          <symbol id="calatrava" viewBox="0 0 100 100"><path d="M50.3 97.8 L49.0 97.7 L46.5 96.6 L45.9 95.8 L45.9 95.0 L44.9 93.0 L44.6 91.3 L44.7 89.5 L46.6 83.9 L46.5 83.4 L45.7 82.5 L45.3 82.3 L44.0 82.5 L41.1 84.6 L40.0 85.1 L39.0 85.3 L38.0 85.2 L36.8 85.4 L34.6 84.8 L33.3 83.7 L32.2 82.4 L31.3 80.1 L31.4 77.6 L33.6 72.6 L34.3 71.8 L35.5 71.3 L36.9 70.1 L38.8 67.9 L40.1 65.9 L40.4 64.9 L40.4 63.4 L41.1 62.6 L42.0 62.7 L42.4 63.0 L43.0 64.2 L43.1 65.5 L42.6 67.3 L40.2 72.6 L39.9 73.7 L40.0 74.6 L40.4 75.2 L41.0 76.6 L42.0 77.3 L42.8 77.4 L44.5 77.1 L45.3 76.6 L45.8 75.9 L46.8 73.9 L47.0 73.2 L46.9 66.6 L47.2 59.5 L47.2 57.4 L46.9 56.4 L46.9 55.0 L46.5 54.1 L46.0 53.5 L45.0 53.0 L43.5 53.0 L42.5 52.7 L33.3 52.9 L26.8 52.9 L25.9 53.0 L23.9 54.0 L23.1 54.8 L22.7 55.4 L22.5 57.0 L22.5 57.9 L23.3 58.8 L24.6 59.4 L25.3 59.9 L26.1 59.9 L27.3 59.6 L32.5 57.2 L34.3 56.8 L35.6 56.8 L36.8 57.4 L37.1 57.9 L37.2 58.7 L36.5 59.5 L35.0 59.4 L33.9 59.7 L31.9 61.0 L29.8 63.0 L28.5 64.4 L28.0 65.5 L27.3 66.2 L22.2 68.4 L19.7 68.6 L17.4 67.6 L16.1 66.6 L15.1 65.2 L14.5 63.0 L14.6 61.9 L14.5 60.9 L14.7 59.9 L15.3 58.7 L17.4 55.9 L17.5 54.5 L17.4 54.2 L16.4 53.3 L15.7 53.2 L10.4 55.1 L8.7 55.2 L7.5 55.1 L6.7 54.9 L4.9 54.0 L4.0 53.9 L3.3 53.5 L2.7 52.5 L2.1 50.8 L2.0 50.2 L2.1 49.0 L3.2 46.5 L4.0 45.9 L4.9 45.9 L6.9 44.9 L8.5 44.6 L10.4 44.7 L15.9 46.6 L16.4 46.5 L17.4 45.7 L17.5 45.3 L17.4 44.0 L15.3 41.1 L14.7 40.0 L14.5 39.0 L14.6 38.0 L14.5 36.8 L15.1 34.6 L16.1 33.3 L17.4 32.2 L19.7 31.3 L22.2 31.4 L27.3 33.6 L28.0 34.3 L28.5 35.5 L29.8 36.9 L31.9 38.8 L33.9 40.1 L35.0 40.4 L36.5 40.4 L37.2 41.1 L37.1 42.0 L36.8 42.4 L35.6 43.0 L34.3 43.1 L32.5 42.6 L27.3 40.2 L26.1 39.9 L25.3 40.0 L24.6 40.4 L23.3 41.0 L22.5 42.0 L22.5 42.8 L22.7 44.5 L23.3 45.3 L23.9 45.8 L25.9 46.8 L26.6 47.0 L33.3 46.9 L40.3 47.2 L42.5 47.2 L43.5 46.9 L44.8 46.9 L45.5 46.7 L46.2 46.1 L46.9 45.0 L46.9 43.5 L47.2 42.5 L46.9 33.3 L47.0 26.8 L46.8 25.9 L45.8 23.9 L45.3 23.3 L44.5 22.7 L42.8 22.5 L42.0 22.5 L41.0 23.3 L40.4 24.6 L40.0 25.3 L39.9 26.1 L40.2 27.3 L42.6 32.5 L43.1 34.3 L43.0 35.6 L42.4 36.8 L42.0 37.1 L41.1 37.2 L40.4 36.5 L40.4 35.0 L40.1 33.9 L38.8 31.9 L36.9 29.8 L35.5 28.5 L34.3 28.0 L33.6 27.3 L31.4 22.2 L31.3 19.7 L32.2 17.4 L33.3 16.1 L34.6 15.1 L36.8 14.5 L38.0 14.6 L39.0 14.5 L40.0 14.7 L41.1 15.3 L44.0 17.4 L45.3 17.5 L45.7 17.4 L46.5 16.4 L46.6 15.7 L44.7 10.4 L44.6 8.7 L44.8 7.5 L45.0 6.7 L45.9 4.9 L45.9 4.0 L46.3 3.3 L47.3 2.7 L49.0 2.1 L49.7 2.0 L50.8 2.1 L53.4 3.2 L53.9 4.0 L54.0 4.9 L54.9 6.9 L55.2 8.5 L55.1 10.4 L53.2 15.9 L53.3 16.4 L54.2 17.4 L54.5 17.5 L55.9 17.4 L58.7 15.3 L59.9 14.7 L60.9 14.5 L61.9 14.6 L63.0 14.5 L65.2 15.1 L66.6 16.1 L67.6 17.4 L68.6 19.7 L68.4 22.2 L66.2 27.3 L65.5 28.0 L64.4 28.5 L63.0 29.8 L61.0 31.9 L59.7 33.9 L59.4 35.0 L59.5 36.5 L58.7 37.2 L57.9 37.1 L57.4 36.8 L56.8 35.6 L56.8 34.3 L57.2 32.5 L59.6 27.3 L59.9 26.1 L59.9 25.3 L59.4 24.6 L58.8 23.3 L57.9 22.5 L57.0 22.5 L55.3 22.7 L54.6 23.3 L54.0 23.9 L53.0 25.9 L52.9 26.6 L52.9 33.3 L52.7 40.3 L52.7 42.5 L53.0 43.5 L52.9 44.8 L53.2 45.5 L53.7 46.2 L54.8 46.9 L56.4 46.9 L57.4 47.2 L66.6 46.9 L73.1 47.0 L73.9 46.8 L75.9 45.8 L76.6 45.3 L77.1 44.5 L77.4 42.8 L77.3 42.0 L76.6 41.0 L75.2 40.4 L74.6 40.0 L73.7 39.9 L72.6 40.2 L67.3 42.6 L65.5 43.1 L64.2 43.0 L63.0 42.4 L62.7 42.0 L62.6 41.1 L63.4 40.4 L64.9 40.4 L65.9 40.1 L67.9 38.8 L70.1 36.9 L71.3 35.5 L71.8 34.3 L72.6 33.6 L77.6 31.4 L80.1 31.3 L82.4 32.2 L83.7 33.3 L84.8 34.6 L85.4 36.8 L85.2 38.0 L85.3 39.0 L85.1 40.0 L84.6 41.1 L82.5 44.0 L82.3 45.3 L82.5 45.7 L83.4 46.5 L84.1 46.6 L89.5 44.7 L91.1 44.6 L92.3 44.8 L93.1 45.0 L95.0 45.9 L95.8 45.9 L96.5 46.3 L97.1 47.3 L97.7 49.0 L97.8 49.7 L97.7 50.8 L96.6 53.4 L95.8 53.9 L95.0 54.0 L93.0 54.9 L91.3 55.2 L89.5 55.1 L83.9 53.2 L83.4 53.3 L82.5 54.2 L82.3 54.5 L82.5 55.9 L84.6 58.7 L85.1 59.9 L85.3 60.9 L85.2 61.9 L85.4 63.0 L84.8 65.2 L83.7 66.6 L82.4 67.6 L80.1 68.6 L77.6 68.4 L72.6 66.2 L71.8 65.5 L71.3 64.4 L70.1 63.0 L67.9 61.0 L65.9 59.7 L64.9 59.4 L63.4 59.5 L62.6 58.7 L62.7 57.9 L63.0 57.4 L64.2 56.8 L65.5 56.8 L67.3 57.2 L72.6 59.6 L73.7 59.9 L74.6 59.9 L75.2 59.4 L76.6 58.8 L77.3 57.9 L77.4 57.0 L77.1 55.3 L76.6 54.6 L75.9 54.0 L73.9 53.0 L73.2 52.9 L66.6 52.9 L59.5 52.7 L57.4 52.7 L56.4 53.0 L55.0 52.9 L54.1 53.3 L53.5 53.9 L53.0 54.8 L53.0 56.4 L52.7 57.4 L52.9 66.6 L52.9 73.1 L53.0 73.9 L54.0 75.9 L54.8 76.7 L55.4 77.1 L57.0 77.4 L57.9 77.3 L58.8 76.6 L59.4 75.2 L59.9 74.6 L59.9 73.7 L59.6 72.6 L57.2 67.3 L56.8 65.5 L56.8 64.2 L57.4 63.0 L57.9 62.7 L58.7 62.6 L59.5 63.4 L59.4 64.9 L59.7 65.9 L61.0 67.9 L63.0 70.1 L64.4 71.3 L65.5 71.8 L66.2 72.6 L68.4 77.6 L68.6 80.1 L67.6 82.4 L66.6 83.7 L65.2 84.8 L63.0 85.4 L61.9 85.2 L60.9 85.3 L59.9 85.1 L58.7 84.6 L55.9 82.5 L54.5 82.3 L54.2 82.5 L53.3 83.4 L53.2 84.1 L55.1 89.5 L55.2 91.1 L55.1 92.3 L54.9 93.1 L54.0 95.0 L53.9 95.8 L53.5 96.5 L52.7 97.0 L50.3 97.8Z"/></symbol>
+          <linearGradient id="rim-metal" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#e9dfc0"/><stop offset="0.45" stop-color="#b8a675"/><stop offset="1" stop-color="#7d6d4a"/>
+          </linearGradient>
+        </defs>
+        <circle cx="100" cy="100" r="93" fill="none" stroke="url(#rim-metal)" stroke-width="10"/>
+        <circle cx="100" cy="100" r="87.6" fill="none" stroke="rgba(60,53,49,0.9)" stroke-width="0.8"/>
+        <circle cx="100" cy="100" r="98.4" fill="none" stroke="rgba(60,53,49,0.9)" stroke-width="0.8"/>
+        <!-- the Calatrava cross, Patek Philippe's emblem, in a medallion on the rim -->
+        <circle cx="100" cy="7" r="11.5" fill="#3c3531" stroke="url(#rim-metal)" stroke-width="1.6"/>
+        <use href="#calatrava" x="91" y="-2" width="18" height="18" fill="#c9bc89"/>
+      </svg>
+    </div>
+
+    <div class="captions" id="captions"></div>
+
+    <!-- one part on its own (Anatomy) -->
+    <button type="button" class="parts-go" id="parts-go">Explore the parts</button>
+    <div class="part" id="part" role="group" aria-label="Part" aria-live="polite" hidden>
+      <button type="button" class="part-step" data-step="-1" aria-label="Previous part">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <div class="part-body">
+        <p class="part-kicker" id="part-kicker"></p>
+        <h2 class="part-name" id="part-name"></h2>
+        <p class="part-note" id="part-note"></p>
+      </div>
+      <button type="button" class="part-step" data-step="1" aria-label="Next part">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <button type="button" class="part-all" id="part-all">All parts</button>
+    </div>
+
+    <div class="modes" role="group" aria-label="View">
+      <button type="button" data-mode="dial" aria-pressed="true">Dial</button>
+      <button type="button" data-mode="movement" aria-pressed="false">Movement</button>
+      <button type="button" data-mode="anatomy" aria-pressed="false">Anatomy</button>
+    </div>
+
+    <!-- the opening: the 1997 watch, swept into the 2022 one, then both -->
+    <div class="intro-lines" id="intro" aria-hidden="true">
+      <p data-line="1"><span class="il-yr il-r">1997</span><span class="il-sub">The Cortina Jubilee · Ref. 5057R</span></p>
+      <p data-line="2"><span class="il-yr il-g">2022</span><span class="il-sub">Cortina Watch 50th Anniversary · Ref. 5057G</span></p>
+      <p data-line="3"><span class="il-big">One watch,<br>twenty-five years apart</span></p>
+    </div>
+    <button type="button" class="intro-skip" id="intro-skip">Skip</button>
+
+    <aside class="sheet" id="sheet" aria-labelledby="sheet-title" hidden>
+      <button type="button" class="sheet-close" id="sheet-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+      <article class="plaque" id="plaque"></article>
+    </aside>
+  </section>
+
+  <section class="story" id="story" aria-labelledby="story-title">
+    <header class="story-head">
+      <p class="eyebrow">1956 – today</p>
+      <h2 id="story-title">Seven decades of friendship</h2>
+      <p class="lede">Behind the two watches stands a friendship between two families, the Sterns of Patek Philippe and the Lims of Cortina Watch, carried across three generations.</p>
+    </header>
+    <ol class="timeline" id="timeline"></ol>
+  </section>
+  <section class="finale" id="finale" aria-label="Seven decades and counting"></section>
+</main>
+
+<footer class="colophon">
+  <p>The watches are 3D models made from photographs of each reference. Shown at 10:10, or live on Singapore time, with today’s date and moon. Photographs courtesy of Cortina Watch.</p>
+</footer>
+
+<script type="module" src="js/main.js?v=12"></script>
+</body>
+</html>

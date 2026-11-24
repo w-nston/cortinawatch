@@ -8,8 +8,8 @@
 //    wall     the large lettering on the wall behind the exhibit
 //    details  optional key/value list shown under the text
 //    inspect  true = visitors can click the exhibit to rotate it up close
-//    image    optional archive photo (same-origin path, e.g. 'assets/1956.jpg')
-//             shown in a frame on the wall next to the exhibit
+//    image    optional photograph { src, alt, w, h } (images: several), from the Cortina Watch
+//             page, saved in assets/cortina/
 // ---------------------------------------------------------------------------
 
 export const site = {
@@ -32,6 +32,7 @@ export const chapters = [
   },
   {
     id: '1956',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_Hero-Image.webp', alt: 'Two gentlemen of the Stern and Lim families looking through a book together', w: 1332, h: 751 },
     nav: '1956',
     side: -1,
     exhibit: 'meeting',
@@ -42,6 +43,7 @@ export const chapters = [
   },
   {
     id: '1978',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_The-First-Patek-Philippe-Authorized-Retailer.webp', alt: 'An early Cortina Watch shop front, its windows full of watches', w: 1116, h: 629 },
     nav: '1972 – 1978',
     side: 1,
     exhibit: 'calatrava',
@@ -52,6 +54,7 @@ export const chapters = [
   },
   {
     id: '1980s',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_A-Time-of-Perseverance-and-Strategic-Planning.webp', alt: 'Two men in suits in front of a “Museum Pieces” display', w: 1440, h: 648 },
     nav: '1980s',
     side: -1,
     exhibit: 'balance',
@@ -62,6 +65,7 @@ export const chapters = [
   },
   {
     id: '5057r',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_A-Testimony-in-the-Form-of-a-Timepiece.webp', alt: 'The rose gold Ref. 5057R beside its attestation of limited edition', w: 1400, h: 648 },
     nav: '1997 · 5057R',
     side: 1,
     exhibit: 'watch5057R',
@@ -80,6 +84,7 @@ export const chapters = [
   },
   {
     id: '2000s',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_Exclusive-Boutique-Concept.webp', alt: 'Four men in front of a Patek Philippe backdrop', w: 1116, h: 629 },
     nav: '2000s',
     side: -1,
     exhibit: 'shops',
@@ -90,6 +95,7 @@ export const chapters = [
   },
   {
     id: '2010',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_Opening-of-the-Patek-Philippe-Boutique.webp', alt: 'The front of a Patek Philippe boutique', w: 1440, h: 648 },
     nav: '2010',
     side: 1,
     exhibit: 'marinaBay',
@@ -100,6 +106,7 @@ export const chapters = [
   },
   {
     id: '2015',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_A-Watch-Speaks-Louder-Than-Words.webp', alt: 'A watch presented in its box in a Patek Philippe salon', w: 1116, h: 629 },
     nav: '2015',
     side: -1,
     exhibit: 'calatrava5227',
@@ -116,6 +123,7 @@ export const chapters = [
   },
   {
     id: '2016',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_Expansion-of-Footprint-in-Asia.webp', alt: 'The ribbon cut at the opening of a Patek Philippe boutique', w: 1116, h: 629 },
     nav: '2016',
     side: 1,
     exhibit: 'salon',
@@ -126,6 +134,7 @@ export const chapters = [
   },
   {
     id: '5057g',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_A-Special-Commemoration.webp', alt: 'The enamel Dome Clock and the Ref. 5057G beside the Cortina Watch 50 emblem', w: 1116, h: 629 },
     nav: '50 years · 5057G',
     side: -1,
     exhibit: 'watch5057G',
@@ -166,6 +175,10 @@ export const chapters = [
   },
   {
     id: 'future',
+    images: [
+      { src: 'assets/cortina/Patek-Philippe_Starhill-KL_Cortina-Watch-1.webp', alt: 'The Patek Philippe boutique at The Starhill, Kuala Lumpur', w: 2232, h: 1258 },
+      { src: 'assets/cortina/Patek-Philippe_One-Bangkok_Cortina-Watch.webp', alt: 'The Patek Philippe boutique at One Bangkok', w: 1440, h: 648 },
+    ],
     nav: 'The future',
     side: 1,
     exhibit: 'map',
@@ -176,6 +189,7 @@ export const chapters = [
   },
   {
     id: 'seven-decades',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_Six-Decades-and-Counting.webp', alt: 'Four men of the two families in a Patek Philippe boutique', w: 1440, h: 648 },
     nav: 'Seven decades',
     side: 0,
     exhibit: 'finale',
@@ -183,5 +197,54 @@ export const chapters = [
     title: 'Three generations. One friendship.',
     body: 'From 1956 to today, the Lim and Stern families have shared one belief: in the enduring value of the mechanical watch.',
     cta: true,
+  },
+];
+
+// ---------------------------------------------------------------------------
+//  The two anniversary watches shown in the exhibition's vitrine (index.html).
+//  model: the GLB in assets/models/. Facts: Cortina Watch, Phillips, Sotheby's
+//  and WatchesBySJX listings; the movement details are the watches' own (the
+//  22K rotor and TWENTY-NINE JEWELS are engraved on them).
+// ---------------------------------------------------------------------------
+export const watches = [
+  {
+    id: '5057r',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_A-Testimony-in-the-Form-of-a-Timepiece.webp', alt: 'The rose gold Ref. 5057R beside its attestation of limited edition', w: 1400, h: 648 },
+    model: 'assets/models/5057R.glb',
+    year: '1997',
+    label: 'Ref. 5057R',
+    kicker: '1997 · The Cortina Jubilee',
+    title: 'Ref. 5057R',
+    history: [
+      'In 1997 Cortina Watch turned twenty-five. To mark the Jubilee, Mr. Philippe Stern proposed a Ref. 5057 as an anniversary piece: a testimony to the friendship between the Stern and Lim families, in the form of a timepiece.',
+      'One hundred were made, in 18K rose gold with a white dial, Roman numerals and a hobnail bezel. Through the sapphire caseback, printed “Cortina Jubilee Watch”, turns the self-winding calibre 240 with its 22K gold mini-rotor.',
+    ],
+    details: [
+      ['Edition', '100 pieces'],
+      ['Case', '18K rose gold, hobnail bezel'],
+      ['Dial', 'White, Roman numerals'],
+      ['Indications', 'Power reserve, pointer date, moon phase, small seconds'],
+      ['Movement', 'Self-winding calibre 240, 22K gold mini-rotor'],
+    ],
+  },
+  {
+    id: '5057g',
+    image: { src: 'assets/cortina/Patek-x-CW-Page_A-Special-Commemoration.webp', alt: 'The enamel Dome Clock and the Ref. 5057G beside the Cortina Watch 50 emblem', w: 1116, h: 629 },
+    model: 'assets/models/5057G.glb',
+    year: '2022',
+    label: 'Ref. 5057G',
+    kicker: '2022 · Cortina Watch 50th Anniversary',
+    title: 'Ref. 5057G',
+    history: [
+      'Twenty-five years later, for Cortina Watch’s 50th anniversary, Patek Philippe returned to the Jubilee watch. The Ref. 5057G-010 keeps the design and the movement of the 1997 piece, reinterpreted in white gold with a slate-grey sunburst dial and applied Roman numerals.',
+      'Again limited to one hundred pieces, it was offered only through Cortina Watch. Its sapphire caseback reads “Cortina Watch · 50th Anniversary · Since 1972”.',
+    ],
+    details: [
+      ['Edition', '100 pieces'],
+      ['Case', 'White gold, hobnail bezel'],
+      ['Dial', 'Slate-grey sunburst, applied Roman numerals'],
+      ['Indications', 'Power reserve, pointer date, moon phase, small seconds'],
+      ['Movement', 'Self-winding calibre 240, 22K gold mini-rotor'],
+    ],
   },
 ];

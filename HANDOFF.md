@@ -4,6 +4,48 @@ A scroll-driven 3D walk through the Cortina Watch / Patek Philippe story, built
 with three.js (vendored, no build step). Copy is in `js/content.js`, sourced from
 https://www.cortinawatch.com/en/patek-philippe/patek-philippe-cortina-watch/.
 
+## The exhibition (index.html)
+
+`index.html` + `css/style.css` + `js/main.js`, mobile first (phone styles are the base; 600 and 900 px
+spread the controls out). The watch fills the screen and is both watches at once: a seam (a clipping
+plane through the eye) runs down it, the 1997 Ref. 5057R left of it and the 2022 Ref. 5057G right of it,
+loaded together and aligned part for part; drag the seam's handle to cross the years, or tap a year to
+see that watch whole and open its story (a bottom sheet on phones, a drawer on wide screens; copy in
+`watches` in `js/content.js`). Dial / Movement (turned round, 14° off square, closer in; the strap,
+keepers and clasp fade away whenever the caseback faces the visitor, however the watch was turned) / Anatomy (laid down and taken apart along its axis, layer by layer, the
+strap fading, part names beside it; layers by part name in `LAYERS`). Drag to turn (mouse: also tilt),
+pinch, trackpad pinch, double-tap or + / − to zoom. The hands keep Singapore time. `#5057r` / `#5057g`
+opens on that watch whole. In Anatomy, tap a part (or its name) to see it on its own: the rest fade to a
+ghost, the camera centres on it, it turns and tilts, and a card gives its name, Patek part number and a
+line about it, with ‹ › through all 36 parts (`PARTS` in `js/main.js`, matched on the GLB's node names).
+It opens, once a visit (sessionStorage; not with a #link or reduced motion), on a 7.5 s sequence: the
+1997 watch alone turning into view ("1997 · The Cortina Jubilee"), the seam sweeping across it into the
+2022 watch ("2022 · Cortina Watch 50th Anniversary"), then back to the middle ("One watch, twenty-five
+years apart"); the controls come in after it. A tap, a key, a scroll or Skip ends it (`runIntro`).
+The tool rail (right) has zoom, Loupe (keeps the lens out; it follows the mouse or a dragging finger) and,
+on phones, Tilt; in Anatomy an "Explore the parts" button starts at the crystal.
+Press and hold anywhere on the watch for a loupe (3.5x, a second render through a narrower window
+of the same camera, copied into a round lens with a gilt rim and the Calatrava cross on a medallion;
+above the finger on touch screens). On phones, tilting the phone turns the watch (deviceorientation,
+re-centred slowly on how it is held) and a sideways shake spins the rotor (devicemotion); Android
+starts it at once, iOS asks on a tap of the tilt button. Both need a secure page (https or localhost),
+so a phone on the local network over plain http gets no motion. The hands show 10:10 (the display
+time; the default) or, with the pill under the masthead set to Live, Singapore time, wound round the
+short way between the two (`tickClock` in `js/main.js`). The date hand shows today's date (80.4° − (date − 1) × 11.6°, fitted to both photos) and the moon disc today's
+phase. The dials are `dial_5057{G,R}_clean_*` from `blender/dial_clean.py`, which takes the
+photographed hands out of both dial textures by rebuilding each dial under its hands from the other
+dial's print (aligned by 50-odd patch matches to ~0.05 mm); where both photos' power reserve hands
+covered the same spot only the ground is filled.
+Below: the partnership's story (`chapters`), with the photographs from the Cortina Watch page
+(`assets/cortina/`, downloaded from cortinawatch.com/wp-content/uploads/; also in the watches' story
+sheets and the closing panel). Bump the `?v=` on `js/main.js`, `css/style.css` and the `content.js`
+import when they change: browsers cache ES modules hard.
+Colours are Cortina Watch's theme (from the saved cortinawatch.com page): brown panels #3C3531 and its
+taupes, white panels with slate text, burgundy #760C44, and the champagne #C9BC89 of its Patek pages. Type
+as on patek.com: Open Sans Light capitals for titles, Lora for text (Google Fonts). Both GLBs
+load on arrival: ~4.2 MB each, Draco-compressed by `blender/export_glb.py` (the decoder is vendored:
+`vendor/three/addons/loaders/DRACOLoader.js` and `vendor/three/addons/libs/draco/gltf/`, three.js r186).
+
 ## Run locally
 
 ```bash
@@ -208,9 +250,8 @@ environment makes the movement read paler than in Blender); swap `build5057('505
    - Check `view=back` and `view=backangle`: movement, print legibility, pads.
    - 5057R: the 1997 movement has older-generation bridges. To match exactly, save a
      high-resolution 5057R caseback photo to `assets/` and project it like `cal240.js`.
-2. **Gallery** (not written yet): `index.html`, `css/style.css`, `js/main.js`
-   (hall, scroll-driven camera with dwell at each chapter, HTML text panels, chapter
-   nav, click-to-inspect with drag-to-rotate + caseback flip), `js/exhibits.js`
+2. **Walk-through hall** (not written; `index.html` is the vitrine exhibition for now): scroll-driven
+   camera with dwell at each chapter, HTML text panels, chapter nav, `js/exhibits.js`
    (arch, 1956 meeting chairs, retailer plaque, balance wheel, shop-in-shop models,
    Marina Bay Sands model, ION salon diorama, Dome Clock, exploded cal. 240,
    SE Asia map table, finale). Planned layout: hall along −Z, bays alternating left and
