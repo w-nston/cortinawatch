@@ -275,7 +275,7 @@ function createVitrine() {
   let seam = 0.5, seamT = 0.5, seamDrag = false, seamShown = -1;
   let idle = 0, time = 0;
   let offX = 0, offY = 0, offXT = 0, offYT = 0;
-  let mode = 'dial', closeUp = 1;                   // closer in for the movement
+  let mode = 'dial', closeUp = 1, claspness = 0;                   // closer in for the movement
   let focusKey = null, tiltOff = 0, tiltOffT = 0, camDist = null;
   const pp = new THREE.Vector3(0, 0, -3);             // the watch's point the pivot turns about
   const GHOST = 0.045;                                 // what is left of the other parts round one shown alone
@@ -287,7 +287,9 @@ function createVitrine() {
     if (m === 'anatomy') { anatT = 1; spinT = spin; }
     else {
       anatT = 0;
-      const base = m === 'movement' ? MOVEMENT_YAW : DIAL_YAW;
+      // the clasp: the watch turned right round, its folding clasp (at the bottom of the strap's loop, behind
+      // the caseback) toward the eye
+      const base = m === 'movement' ? MOVEMENT_YAW : m === 'clasp' ? Math.PI : DIAL_YAW;
       yawT = yaw + wrap(base - yaw);                 // the short way round
       pitchT = 0;
     }
@@ -297,11 +299,7 @@ function createVitrine() {
   let spinT = spin;
   let shownMode = 'dial';
   function syncModes() {
-    let shown = mode;
-    if (mode !== 'anatomy') {                        // a turn by hand can bring the movement round
-      const d = (a) => Math.abs(wrap(yaw - a));
-      shown = d(MOVEMENT_YAW) < 0.9 ? 'movement' : d(DIAL_YAW) < 1.2 ? 'dial' : '';
-    }
+    const shown = mode;                              // the view chosen; a turn by hand does not change it
     if (shown === shownMode) return;
     shownMode = shown;
     for (const b of document.querySelectorAll('.modes button')) b.setAttribute('aria-pressed', String(b.dataset.mode === shown));
@@ -666,7 +664,7 @@ function createVitrine() {
       if (box.isEmpty()) for (const n of comps.get(focusKey).nodes) box.expandByObject(n.o);
       radius = Math.max(3.5, box.getSize(c).length() / 2);
       holder.worldToLocal(box.getCenter(fc));
-    } else fc.set(0, 0, -3 - 4 * explode);
+    } else fc.set(0, 0, THREE.MathUtils.lerp(-3 - 4 * explode, -44.5, claspness));   // the clasp's centre, in Clasp
     pp.set(damp(pp.x, fc.x, 5, dt), damp(pp.y, fc.y, 5, dt), damp(pp.z, fc.z, 5, dt));
     holder.position.copy(pp).negate();
     // a shake of the phone jolts the watch a little (a damped spring), and the rotor feels it
@@ -691,13 +689,15 @@ function createVitrine() {
     // the camera: back far enough for the watch (or its parts) to fit the free part of the screen
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const freeH = Math.max(120, H_ - topPad - freeBot), freeW = W_ - 2 * offX;
-    const halfH = THREE.MathUtils.lerp(44, 62, tilt), halfW = THREE.MathUtils.lerp(30, small ? 58 : 54, tilt);
+    claspness = damp(claspness, mode === 'clasp' ? 1 : 0, 3, dt);
+    const halfH = THREE.MathUtils.lerp(THREE.MathUtils.lerp(44, 62, tilt), 30, claspness);
+    const halfW = THREE.MathUtils.lerp(THREE.MathUtils.lerp(30, small ? 58 : 54, tilt), 24, claspness);
     const dist = Math.max((halfH / t) * (H_ / freeH), halfW / (t * (freeW / H_)));
     zoom = damp(zoom, zoomT, 8, dt);
     const nearMovement = 1 - smooth(Math.abs(wrap(yaw - MOVEMENT_YAW)) / 0.9);
     // how far the caseback faces the visitor, whichever way the watch was turned
     backness = smooth((-Math.cos(yaw + sway + tY) * Math.cos(pitch + tP) - 0.25) / 0.45) * (1 - tilt);
-    closeUp = damp(closeUp, 1 + 0.55 * nearMovement * (1 - tilt), 3, dt);
+    closeUp = damp(closeUp, 1 + 0.55 * nearMovement * (1 - tilt) * (mode === 'movement' ? 1 : 0), 3, dt);
     // a part alone fills the free part of the screen
     if (intro) runIntro(dt); else introZ = damp(introZ, 1, 3, dt);
     const want = (radius ? (radius * 1.05) / (t * (Math.min(freeH, freeW) / H_)) / zoom : dist / (zoom * closeUp)) * introZ;
@@ -791,7 +791,9 @@ function createVitrine() {
   }
 
   function fadeParts(dt, tilt) {
-    const strap = 1 - Math.max(smooth(tilt / 0.6), backness);   // out of the way: Anatomy, or the back shown
+    // out of the way in Anatomy, and in Movement once the back is turned to the eye; a turn by hand keeps
+    // it, clasp and all
+    const strap = 1 - Math.max(smooth(tilt / 0.6), mode === 'movement' ? backness : 0);
     for (const comp of comps.values()) {
       if (comp.key === 'strap') comp.vis = strap;
       else comp.vis = damp(comp.vis, focusKey ? (comp.key === focusKey ? 1 : GHOST) : 1, 6, dt);

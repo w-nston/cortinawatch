@@ -422,7 +422,7 @@ button { font: inherit; color: inherit; }
   right: var(--gutter);
   bottom: calc(18px + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, auto);
   border: 1px solid var(--rule);
   background: rgba(60, 53, 49, 0.55);
   -webkit-backdrop-filter: blur(8px);
@@ -430,17 +430,18 @@ button { font: inherit; color: inherit; }
 }
 .modes button {
   min-height: 44px;
-  padding: 0 6px;
+  padding: 0 4px;
   border: 0;
   background: none;
-  font: 300 10.5px/1 var(--sans);
-  letter-spacing: 0.2em;
+  font: 300 10px/1 var(--sans);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--sand);
   cursor: pointer;
   transition: color 0.3s, background-color 0.3s;
 }
 .modes button + button { border-left: 1px solid var(--rule); }
+.modes { grid-template-columns: 1fr 1.25fr 1fr 1.15fr; }   /* room for MOVEMENT and ANATOMY on a phone */
 .modes button[aria-pressed='true'] { color: var(--white); background: rgba(201, 188, 137, 0.16); }
 
 /* part names beside the watch taken apart: tap one to see that part alone */
@@ -796,7 +797,7 @@ button, a { touch-action: manipulation; }
 @media (min-width: 600px) {
   :root { --gutter: 32px; --bottom: calc(160px + env(safe-area-inset-bottom)); }
   .label { font-size: 9.5px; }
-  .modes { left: 50%; right: auto; width: 420px; transform: translateX(-50%); }
+  .modes { left: 50%; right: auto; width: 480px; transform: translateX(-50%); }
   .captions { bottom: calc(90px + env(safe-area-inset-bottom)); }
   .part { left: 50%; right: auto; width: 460px; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom)); }
   .part[hidden] { transform: translate(-50%, 10px); }
